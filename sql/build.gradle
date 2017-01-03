@@ -1,7 +1,14 @@
 apply from: "$rootDir/gradle/javaModule.gradle"
 apply plugin: 'groovy'
+apply plugin: "kotlin"
 
 archivesBaseName = 'crate-sql'
+
+repositories {
+    maven {
+        url "http://dl.bintray.com/kotlin/kotlin-eap-1.1"
+    }
+}
 
 configurations {
     benchmarksCompile.extendsFrom testCompile
@@ -14,6 +21,11 @@ dependencies {
     compile project(':sql-parser')
     compile "com.amazonaws:aws-java-sdk-s3:${versions.aws}"
     compile "org.apache.commons:commons-math3:${versions.commonsmath}"
+
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-generate:0.2-beta'
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-async:0.2-beta'
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-rx:0.2-beta'
+
     testCompile project(':testing')
     testCompile 'org.skyscreamer:jsonassert:1.3.0'
     testCompile "org.hamcrest:hamcrest-all:${versions.hamcrest}"

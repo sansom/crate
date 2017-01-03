@@ -88,7 +88,7 @@ public class DistributingDownstreamFactory extends AbstractComponent {
                 throw new UnsupportedOperationException("Can't handle distributionInfo: " + distributionInfo);
         }
 
-        return new DistributingDownstream(
+        return new DistributingDownstream2(
             distributingDownstreamLogger,
             jobId,
             multiBucketBuilder,
