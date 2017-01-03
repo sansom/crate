@@ -26,12 +26,25 @@ import io.crate.Streamer
 import io.crate.core.collections.Bucket
 import io.crate.core.collections.Row
 import io.crate.operation.projectors.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.await
 import org.elasticsearch.action.ActionListener
 import org.elasticsearch.common.logging.ESLogger
-import org.elasticsearch.common.logging.Loggers
 import java.util.*
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicReference
+
+
+class FutureListener<T> : CompletableFuture<T>(), ActionListener<T> {
+
+  override fun onFailure(e: Throwable?) {
+    super.completeExceptionally(e)
+  }
+
+  override fun onResponse(response: T) {
+    super.complete(response)
+  }
+}
 
 class DistributingDownstream2(logger: ESLogger,
                               jobId: UUID,
@@ -51,15 +64,12 @@ class DistributingDownstream2(logger: ESLogger,
   private val inputId:Byte
   private val bucketIdx:Int
   private val pageSize:Int
-  private val inFlightRequests = AtomicInteger(0)
-  private val lock = Any()
-  private val downstreams:Array<Downstream?>
+  private val downstreams:ArrayList<Downstream> = ArrayList(downstreamNodeIds.count())
   private val distributedResultAction:TransportDistributedResultAction
   private val streamers:Array<Streamer<*>>
   private val buckets:Array<Bucket?>
   private val traceEnabled:Boolean
   private var upstreamFinished:Boolean = false
-  private val resumeHandleRef = AtomicReference(ResumeHandle.INVALID)
   private val failure = AtomicReference<Throwable>(null)
 
   private var isKilled = false
@@ -75,13 +85,10 @@ class DistributingDownstream2(logger: ESLogger,
     this.pageSize = pageSize
     this.streamers = streamers
     buckets = arrayOfNulls<Bucket>(downstreamNodeIds.count())
-    downstreams = arrayOfNulls<Downstream>(downstreamNodeIds.count())
     this.distributedResultAction = distributedResultAction
-    var i = 0
     for (downstreamNodeId in downstreamNodeIds)
     {
-      downstreams[i] = Downstream(downstreamNodeId)
-      i++
+      downstreams.add(Downstream(downstreamNodeId))
     }
     traceEnabled = logger.isTraceEnabled()
   }
@@ -92,19 +99,47 @@ class DistributingDownstream2(logger: ESLogger,
     }
     multiBucketBuilder.add(row)
     if (multiBucketBuilder.size() >= pageSize) {
-      if (inFlightRequests.get() === 0) {
-        trySendRequests()
-      }
-      else
-      {
-            /*
-     * trySendRequests is called after pause has been processed to avoid race condition:
-     * ( trySendRequest -> return PAUSE -> onResponse before pauseProcessed)
-     */
-        return RowReceiver.Result.PAUSE
+      multiBucketBuilder.build(buckets)
+      sendRequests()
+      if (downstreams.all { it.isFinished }) {
+        return RowReceiver.Result.STOP
       }
     }
     return RowReceiver.Result.CONTINUE
+  }
+
+  private fun sendRequests() {
+    val results = ArrayList<FutureListener<DistributedResultResponse>>()
+
+    async {
+      for (i in 0..downstreams.size - 1) {
+        val downstream = downstreams[i]
+        if (downstream.isFinished) {
+          continue
+        }
+
+        val bucket = buckets[i]
+        val listenerFuture = FutureListener<DistributedResultResponse>()
+        listenerFuture.
+                whenComplete { t, u ->
+                  if (t != null) {
+                    downstream.isFinished = !t.needMore()
+                  }
+                }
+        results.add(listenerFuture)
+
+        distributedResultAction.pushResult(
+                downstream.nodeId,
+                DistributedResultRequest(
+                        jobId, targetPhaseId, inputId, bucketIdx, streamers, bucket, false),
+                listenerFuture
+        )
+      }
+
+      for (resultFuture in results) {
+        val result = resultFuture.await()
+      }
+    }
   }
 
   private fun traceLog(msg:String) {
@@ -115,108 +150,40 @@ class DistributingDownstream2(logger: ESLogger,
   }
 
   override fun pauseProcessed(resumeable:ResumeHandle) {
-    if (resumeHandleRef.compareAndSet(ResumeHandle.INVALID, resumeable))
-    {
-      trySendRequests()
-    }
-    else
-    {
-      throw IllegalStateException("Invalid resumeHandle was set")
-    }
   }
 
   override fun finish(repeatable:RepeatHandle) {
     traceLog("action=finish")
-    upstreamFinished = true
-    trySendRequests()
+    multiBucketBuilder.build(buckets)
+    for (i in 0..downstreams.size - 1) {
+      val downstream = downstreams[i]
+      if (downstream.isFinished) {
+        continue
+      }
+
+      val bucket = buckets[i]
+      val listenerFuture = FutureListener<DistributedResultResponse>()
+
+      distributedResultAction.pushResult(
+              downstream.nodeId,
+              DistributedResultRequest(
+                      jobId, targetPhaseId, inputId, bucketIdx, streamers, bucket, true),
+              listenerFuture
+      )
+    }
   }
 
   override fun fail(throwable:Throwable) {
     traceLog("action=fail")
-    stop = true
-    failure.compareAndSet(null, throwable)
-    upstreamFinished = true
-    trySendRequests()
   }
 
-  private fun trySendRequests() {
-    var isLastRequest:Boolean = false
-    var error:Throwable? = null
-    var resumeWithoutSendingRequests = false
-
-    synchronized (lock) {
-      val numInFlightRequests = inFlightRequests.get()
-      if (numInFlightRequests > 0) {
-        traceLog("action=trySendRequests numInFlightRequests > 0")
-        return
-      }
-      isLastRequest = upstreamFinished
-      error = failure.get()
-      if (isLastRequest || multiBucketBuilder.size() >= pageSize) {
-        multiBucketBuilder.build(buckets)
-        inFlightRequests.addAndGet(downstreams.size)
-        if (traceEnabled) {
-          logger.trace("targetPhase={}/{} bucketIdx={} action=trySendRequests isLastRequest={} ",
-                       targetPhaseId, inputId, bucketIdx, isLastRequest)
-        }
-      }
-      else {
-        resumeWithoutSendingRequests = true
-      }
-    }
-    if (resumeWithoutSendingRequests) {
-      // do resume outside of the lock
-      doResume()
-      return
-    }
-    val allDownstreamsFinished = doSendRequests(isLastRequest, error)
-    if (isLastRequest) {
-      return
-    }
-    if (allDownstreamsFinished) {
-      stop = true
-    }
-    doResume()
-  }
-
-  private fun doSendRequests(isLastRequest:Boolean, error:Throwable?):Boolean {
-    var allDownstreamsFinished = true
-    for (i in downstreams.indices)
-    {
-      val downstream = downstreams[i] ?: continue
-      allDownstreamsFinished = allDownstreamsFinished and downstream.isFinished
-      if (downstream.isFinished) {
-        inFlightRequests.decrementAndGet()
-      }
-      else {
-        if (error == null) {
-          downstream.sendRequest(buckets[i], isLastRequest)
-        }
-        else {
-          downstream.sendRequest(error, isKilled)
-        }
-      }
-    }
-    return allDownstreamsFinished
-  }
-
-  private fun doResume() {
-    val resumeHandle = resumeHandleRef.get()
-    if (resumeHandle !== ResumeHandle.INVALID)
-    {
-      resumeHandleRef.set(ResumeHandle.INVALID)
-      resumeHandle.resume(true)
-    }
-  }
 
   override fun kill(throwable:Throwable) {
     stop = true
     // forward kill reason to downstream if not already done, otherwise downstream may wait forever for a final result
-    if (failure.compareAndSet(null, throwable))
-    {
+    if (failure.compareAndSet(null, throwable)) {
       upstreamFinished = true
       isKilled = true
-      trySendRequests()
     }
   }
 
@@ -224,51 +191,12 @@ class DistributingDownstream2(logger: ESLogger,
     return Requirements.NO_REQUIREMENTS
   }
 
-  private inner class Downstream internal constructor(downstreamNodeId:String): ActionListener<DistributedResultResponse> {
-    private val downstreamNodeId:String
+  private inner class Downstream internal constructor(downstreamNodeId:String) {
+    val nodeId:String
     internal var isFinished = false
 
     init{
-      this.downstreamNodeId = downstreamNodeId
-    }
-
-    internal fun sendRequest(t:Throwable, isKilled:Boolean) {
-      distributedResultAction.pushResult(
-        downstreamNodeId,
-        DistributedResultRequest(jobId, targetPhaseId, inputId, bucketIdx, t, isKilled),
-        NO_OP_ACTION_LISTENER
-      )
-    }
-
-    internal fun sendRequest(bucket:Bucket?, isLast:Boolean) {
-      distributedResultAction.pushResult(
-        downstreamNodeId,
-        DistributedResultRequest(jobId, targetPhaseId, inputId, bucketIdx, streamers, bucket, isLast),
-        this
-      )
-    }
-
-    override fun onResponse(distributedResultResponse:DistributedResultResponse) {
-      isFinished = !distributedResultResponse.needMore()
-      inFlightRequests.decrementAndGet()
-      trySendRequests()
-    }
-
-    override fun onFailure(e:Throwable) {
-      stop = true
-      isFinished = true
-      inFlightRequests.decrementAndGet()
-      trySendRequests() // still need to resume upstream if it was paused
-    }
-  }
-
-  companion object {
-    private val NO_OP_ACTION_LISTENER = object:ActionListener<DistributedResultResponse> {
-      private val LOGGER = Loggers.getLogger(DistributingDownstream::class.java)
-      override fun onResponse(distributedResultResponse:DistributedResultResponse) {}
-      override fun onFailure(e:Throwable) {
-        LOGGER.trace("Received failure from downstream", e)
-      }
+      this.nodeId = downstreamNodeId
     }
   }
 }
