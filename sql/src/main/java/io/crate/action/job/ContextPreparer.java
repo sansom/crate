@@ -23,13 +23,11 @@ package io.crate.action.job;
 
 import com.carrotsearch.hppc.*;
 import com.carrotsearch.hppc.cursors.IntCursor;
-import com.google.common.base.Function;
+import com.carrotsearch.hppc.procedures.ObjectProcedure;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Streamer;
@@ -78,9 +76,6 @@ import org.elasticsearch.threadpool.ThreadPool;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.BitSet;
-import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Singleton
 public class ContextPreparer extends AbstractComponent {
@@ -124,7 +119,7 @@ public class ContextPreparer extends AbstractComponent {
         inputFactory = new InputFactory(functions);
     }
 
-    public List<ListenableFuture<Bucket>> prepareOnRemote(Iterable<? extends NodeOperation> nodeOperations,
+    public List<ListenableFuture<Bucket>> prepareOnRemote(Collection<? extends NodeOperation> nodeOperations,
                                                           JobExecutionContext.Builder contextBuilder,
                                                           SharedShardContexts sharedShardContexts) {
         ContextPreparer.PreparerContext preparerContext = new PreparerContext(
@@ -145,7 +140,7 @@ public class ContextPreparer extends AbstractComponent {
         return preparerContext.directResponseFutures;
     }
 
-    public List<ListenableFuture<Bucket>> prepareOnHandler(Iterable<? extends NodeOperation> nodeOperations,
+    public List<ListenableFuture<Bucket>> prepareOnHandler(Collection<? extends NodeOperation> nodeOperations,
                                                            JobExecutionContext.Builder contextBuilder,
                                                            List<Tuple<ExecutionPhase, RowReceiver>> handlerPhases,
                                                            SharedShardContexts sharedShardContexts) {
@@ -257,21 +252,23 @@ public class ContextPreparer extends AbstractComponent {
          * (In the example above, NodeOp 0 might depend on the context/RowReceiver of NodeOp 1 being built first.)
          */
         private final Multimap<Integer, Integer> targetToSourceMap;
-        private final ImmutableMap<Integer, ? extends NodeOperation> nodeOperationMap;
+        private final IntObjectHashMap<NodeOperation> nodeOperationMap;
         private final BitSet builtNodeOperations;
         private final String localNodeId;
 
-        public NodeOperationCtx(String localNodeId, Iterable<? extends NodeOperation> nodeOperations) {
+        public NodeOperationCtx(String localNodeId, Collection<? extends NodeOperation> nodeOperations) {
             this.localNodeId = localNodeId;
             targetToSourceMap = createTargetToSourceMap(nodeOperations);
-            nodeOperationMap = Maps.uniqueIndex(nodeOperations, new Function<NodeOperation, Integer>() {
-                @Nullable
-                @Override
-                public Integer apply(@Nullable NodeOperation input) {
-                    return input == null ? null : input.executionPhase().phaseId();
-                }
-            });
+            nodeOperationMap = nodeOpsToMap(nodeOperations);
             builtNodeOperations = new BitSet(nodeOperationMap.size());
+        }
+
+        private static IntObjectHashMap<NodeOperation> nodeOpsToMap(Collection<? extends NodeOperation> nodeOperations) {
+            IntObjectHashMap<NodeOperation> map = new IntObjectHashMap<>(nodeOperations.size());
+            for (NodeOperation nodeOperation : nodeOperations) {
+                map.put(nodeOperation.executionPhase().phaseId(), nodeOperation);
+            }
+            return map;
         }
 
         static Multimap<Integer, Integer> createTargetToSourceMap(Iterable<? extends NodeOperation> nodeOperations) {
@@ -359,7 +356,7 @@ public class ContextPreparer extends AbstractComponent {
                         JobExecutionContext.Builder contextBuilder,
                         ESLogger logger,
                         DistributingDownstreamFactory distributingDownstreamFactory,
-                        Iterable<? extends NodeOperation> nodeOperations,
+                        Collection<? extends NodeOperation> nodeOperations,
                         @Nullable SharedShardContexts sharedShardContexts) {
             this.contextBuilder = contextBuilder;
             this.logger = logger;
@@ -416,7 +413,7 @@ public class ContextPreparer extends AbstractComponent {
         }
 
         /**
-         * The rowReceiver for handlerPhases got passed into {@link #prepareOnHandler(Iterable, JobExecutionContext.Builder, List, SharedShardContexts)}
+         * The rowReceiver for handlerPhases got passed into {@link #prepareOnHandler(Collection, JobExecutionContext.Builder, List, SharedShardContexts)}
          * and is registered there.
          * <p>
          * Retrieve it
@@ -499,7 +496,7 @@ public class ContextPreparer extends AbstractComponent {
                 false,
                 ramAccountingContext,
                 // no separate executor because TransportDistributedResultAction already runs in a threadPool
-                Optional.<Executor>absent());
+                Optional.absent());
 
 
             context.registerSubContext(new PageDownstreamContext(
@@ -548,16 +545,19 @@ public class ContextPreparer extends AbstractComponent {
 
         @Override
         public Boolean visitFetchPhase(final FetchPhase phase, final PreparerContext context) {
-            Stream<ExecutionPhase> phaseStream = context.opCtx.nodeOperationMap.values()
-                .stream()
-                .map(NodeOperation::executionPhase);
+            List<Routing> routings = new ArrayList<>();
+            context.opCtx.nodeOperationMap.values().forEach((ObjectProcedure<NodeOperation>) value -> {
+                ExecutionPhase executionPhase = value.executionPhase();
+                if (executionPhase instanceof RoutedCollectPhase) {
+                    routings.add(((RoutedCollectPhase) executionPhase).routing());
+                }
+            });
 
-            phaseStream = Stream.concat(phaseStream, context.leafs.stream());
-            List<Routing> routings = phaseStream
-                .map(x -> x instanceof RoutedCollectPhase ? ((RoutedCollectPhase) x).routing() : null)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
+            context.leafs.forEach(executionPhase -> {
+                if (executionPhase instanceof RoutedCollectPhase) {
+                    routings.add(((RoutedCollectPhase) executionPhase).routing());
+                }
+            });
             assert !routings.isEmpty()
                 : "Routings must be present. " +
                   "It doesn't make sense to have a FetchPhase on a node without at least one CollectPhase on the same node";
