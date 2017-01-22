@@ -293,13 +293,15 @@ public class ContextPreparer extends AbstractComponent {
          */
         private static IntCollection findLeafs(IntObjectMap<? extends IntContainer> targetToSourceMap) {
             IntArrayList leafs = new IntArrayList();
-            IntHashSet sources = new IntHashSet();
-            for (IntObjectCursor<? extends IntContainer> cursor : targetToSourceMap) {
-                sources.addAll(cursor.value);
+            BitSet sources = new BitSet();
+            for (IntObjectCursor<? extends IntContainer> sourceIds : targetToSourceMap) {
+                for (IntCursor sourceId : sourceIds.value) {
+                    sources.set(sourceId.value);
+                }
             }
             for (IntCursor targetPhaseCursor : targetToSourceMap.keys()) {
                 int targetPhase = targetPhaseCursor.value;
-                if (!sources.contains(targetPhase)) {
+                if (!sources.get(targetPhase)) {
                     leafs.add(targetPhase);
                 }
             }
