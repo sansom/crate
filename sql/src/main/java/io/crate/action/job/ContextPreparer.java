@@ -290,16 +290,30 @@ public class ContextPreparer extends AbstractComponent {
          * find all phases that don't have any downstreams.
          * <p>
          * This is usually only one phase (the handlerPhase, but there might be more in case of bulk operations)
+         * <pre>
+         *
+         *     flow:            targetToSourceMap:
+         *
+         *     0    1               2 -> [0, 1]
+         *      \  /                3 -> [2]
+         *       2
+         *       |
+         *       3
+         *
+         *     leafs = targetToSourceMap keys not in values
+         * </pre>
          */
         private static IntCollection findLeafs(IntObjectMap<? extends IntContainer> targetToSourceMap) {
             IntArrayList leafs = new IntArrayList();
-            IntHashSet sources = new IntHashSet();
-            for (IntObjectCursor<? extends IntContainer> cursor : targetToSourceMap) {
-                sources.addAll(cursor.value);
+            BitSet sources = new BitSet();
+            for (IntObjectCursor<? extends IntContainer> sourceIds : targetToSourceMap) {
+                for (IntCursor sourceId : sourceIds.value) {
+                    sources.set(sourceId.value);
+                }
             }
             for (IntCursor targetPhaseCursor : targetToSourceMap.keys()) {
                 int targetPhase = targetPhaseCursor.value;
-                if (!sources.contains(targetPhase)) {
+                if (!sources.get(targetPhase)) {
                     leafs.add(targetPhase);
                 }
             }
