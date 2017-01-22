@@ -23,7 +23,7 @@ package io.crate.action.job;
 
 import com.carrotsearch.hppc.*;
 import com.carrotsearch.hppc.cursors.IntCursor;
-import com.carrotsearch.hppc.cursors.IntObjectCursor;
+import com.carrotsearch.hppc.cursors.ObjectCursor;
 import com.carrotsearch.hppc.procedures.ObjectProcedure;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
@@ -294,7 +294,7 @@ public class ContextPreparer extends AbstractComponent {
         private static IntCollection findLeafs(IntObjectMap<? extends IntContainer> targetToSourceMap) {
             IntArrayList leafs = new IntArrayList();
             BitSet sources = new BitSet();
-            for (IntObjectCursor<? extends IntContainer> sourceIds : targetToSourceMap) {
+            for (ObjectCursor<? extends IntContainer> sourceIds : targetToSourceMap.values()) {
                 for (IntCursor sourceId : sourceIds.value) {
                     sources.set(sourceId.value);
                 }

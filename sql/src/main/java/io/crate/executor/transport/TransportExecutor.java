@@ -406,7 +406,7 @@ public class TransportExecutor implements Executor {
      * every time addPhase is called a NodeOperation is added
      * that connects the previous phase (if there is one) to the current phase
      */
-    static class NodeOperationTreeGenerator extends PlanVisitor<NodeOperationTreeGenerator.NodeOperationTreeContext, Void> {
+    public static class NodeOperationTreeGenerator extends PlanVisitor<NodeOperationTreeGenerator.NodeOperationTreeContext, Void> {
 
         private static class Branch {
             private final Stack<ExecutionPhase> phases = new Stack<>();
@@ -502,7 +502,7 @@ public class TransportExecutor implements Executor {
             }
         }
 
-        NodeOperationTree fromPlan(Plan plan, String localNodeId) {
+        public NodeOperationTree fromPlan(Plan plan, String localNodeId) {
             NodeOperationTreeContext nodeOperationTreeContext = new NodeOperationTreeContext(localNodeId);
             process(plan, nodeOperationTreeContext);
             return new NodeOperationTree(nodeOperationTreeContext.nodeOperations(),
