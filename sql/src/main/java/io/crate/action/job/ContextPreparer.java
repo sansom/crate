@@ -23,12 +23,11 @@ package io.crate.action.job;
 
 import com.carrotsearch.hppc.*;
 import com.carrotsearch.hppc.cursors.IntCursor;
+import com.carrotsearch.hppc.cursors.IntObjectCursor;
 import com.carrotsearch.hppc.procedures.ObjectProcedure;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.Streamer;
 import io.crate.breaker.CrateCircuitBreakerService;
@@ -215,18 +214,18 @@ public class ContextPreparer extends AbstractComponent {
      * {@link PreparerContext#opCtx#targetToSourceMap} will be used to traverse the nodeOperations
      */
     private void prepareSourceOperations(int startPhaseId, PreparerContext preparerContext) {
-        Collection<Integer> sourcePhaseIds = preparerContext.opCtx.targetToSourceMap.get(startPhaseId);
-        if (sourcePhaseIds.isEmpty()) {
+        IntContainer sourcePhaseIds = preparerContext.opCtx.targetToSourceMap.get(startPhaseId);
+        if (sourcePhaseIds == null) {
             return;
         }
-        for (Integer sourcePhaseId : sourcePhaseIds) {
-            NodeOperation nodeOperation = preparerContext.opCtx.nodeOperationMap.get(sourcePhaseId);
+        for (IntCursor sourcePhaseId : sourcePhaseIds) {
+            NodeOperation nodeOperation = preparerContext.opCtx.nodeOperationMap.get(sourcePhaseId.value);
             Boolean created = createContexts(nodeOperation.executionPhase(), preparerContext);
             assert created : "a subContext is required to be created";
             preparerContext.opCtx.builtNodeOperations.set(nodeOperation.executionPhase().phaseId());
         }
-        for (Integer sourcePhaseId : sourcePhaseIds) {
-            prepareSourceOperations(sourcePhaseId, preparerContext);
+        for (IntCursor sourcePhaseId : sourcePhaseIds) {
+            prepareSourceOperations(sourcePhaseId.value, preparerContext);
         }
     }
 
@@ -251,8 +250,8 @@ public class ContextPreparer extends AbstractComponent {
          * <p/>
          * (In the example above, NodeOp 0 might depend on the context/RowReceiver of NodeOp 1 being built first.)
          */
-        private final Multimap<Integer, Integer> targetToSourceMap;
-        private final IntObjectHashMap<NodeOperation> nodeOperationMap;
+        private final IntObjectMap<? extends IntContainer> targetToSourceMap;
+        private final IntObjectMap<NodeOperation> nodeOperationMap;
         private final BitSet builtNodeOperations;
         private final String localNodeId;
 
@@ -271,13 +270,18 @@ public class ContextPreparer extends AbstractComponent {
             return map;
         }
 
-        static Multimap<Integer, Integer> createTargetToSourceMap(Iterable<? extends NodeOperation> nodeOperations) {
-            HashMultimap<Integer, Integer> targetToSource = HashMultimap.create();
-            for (NodeOperation nodeOperation : nodeOperations) {
-                if (nodeOperation.downstreamExecutionPhaseId() == NodeOperation.NO_DOWNSTREAM) {
+        static IntObjectHashMap<? extends IntContainer> createTargetToSourceMap(Iterable<? extends NodeOperation> nodeOperations) {
+            IntObjectHashMap<IntArrayList> targetToSource = new IntObjectHashMap<>();
+            for (NodeOperation nodeOp : nodeOperations) {
+                if (nodeOp.downstreamExecutionPhaseId() == NodeOperation.NO_DOWNSTREAM) {
                     continue;
                 }
-                targetToSource.put(nodeOperation.downstreamExecutionPhaseId(), nodeOperation.executionPhase().phaseId());
+                IntArrayList sourceIds = targetToSource.get(nodeOp.downstreamExecutionPhaseId());
+                if (sourceIds == null) {
+                    sourceIds = new IntArrayList();
+                    targetToSource.put(nodeOp.downstreamExecutionPhaseId(), sourceIds);
+                }
+                sourceIds.add(nodeOp.executionPhase().phaseId());
             }
             return targetToSource;
         }
@@ -287,23 +291,28 @@ public class ContextPreparer extends AbstractComponent {
          * <p>
          * This is usually only one phase (the handlerPhase, but there might be more in case of bulk operations)
          */
-        private static IntCollection findLeafs(Multimap<Integer, Integer> targetToSourceMap) {
+        private static IntCollection findLeafs(IntObjectMap<? extends IntContainer> targetToSourceMap) {
             IntArrayList leafs = new IntArrayList();
-            for (Integer targetPhaseId : targetToSourceMap.keySet()) {
-                if (!targetToSourceMap.containsValue(targetPhaseId)) {
-                    leafs.add(targetPhaseId);
+            IntHashSet sources = new IntHashSet();
+            for (IntObjectCursor<? extends IntContainer> cursor : targetToSourceMap) {
+                sources.addAll(cursor.value);
+            }
+            for (IntCursor targetPhaseCursor : targetToSourceMap.keys()) {
+                int targetPhase = targetPhaseCursor.value;
+                if (!sources.contains(targetPhase)) {
+                    leafs.add(targetPhase);
                 }
             }
             return leafs;
         }
 
         public boolean upstreamsAreOnSameNode(int phaseId) {
-            Collection<Integer> sourcePhases = targetToSourceMap.get(phaseId);
-            if (sourcePhases.isEmpty()) {
+            IntContainer sourcePhases = targetToSourceMap.get(phaseId);
+            if (sourcePhases == null) {
                 return false;
             }
-            for (Integer sourcePhase : sourcePhases) {
-                NodeOperation nodeOperation = nodeOperationMap.get(sourcePhase);
+            for (IntCursor sourcePhase : sourcePhases) {
+                NodeOperation nodeOperation = nodeOperationMap.get(sourcePhase.value);
                 if (nodeOperation == null) {
                     return false;
                 }
