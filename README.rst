@@ -1,16 +1,8 @@
-.. image:: https://cdn.crate.io/web/2.0/img/crate-logo_330x72.png
-    :width: 165px
-    :alt: Crate
-    :target: https://crate.io
+.. image:: blackbox/docs/_static/crate-logo.png
+    :alt: CrateDB
+    :target: https://crate.io/
 
-==================================
-CRATEDB: Put data to work. Simply.
-==================================
-
-    CrateDB allows to query and compute data with SQL in real time by providing a
-    distributed aggregation engine, native search and super simple scalability.
-
-**https://crate.io**
+----
 
 .. image:: https://travis-ci.org/crate/crate.svg?branch=master
     :target: https://travis-ci.org/crate/crate
@@ -21,122 +13,83 @@ CRATEDB: Put data to work. Simply.
 .. image:: https://img.shields.io/badge/container-docker-green.svg
     :target: https://hub.docker.com/_/crate/
 
-Features include
-----------------
+|
 
-Familiar SQL syntax:
+CrateDB is a distributed SQL database that makes it simple to store and analyze massive amounts of machine data in real-time.
 
-::
+Features of CrateDB:
 
-    select * from users;
-    insert into users (name) values ('Arthur');
+- Standard SQL plus dynamic schemas, queryable objects, geospatial features, time series data, first-class BLOB support, and realtime full-text search.
+- Horizontally scalable, highly available, and fault tolerant clusters that run very well in virtualized and containerised environments.
+- Extremely fast distributed query execution.
+- Auto-partitioning, auto-sharding, and auto-replication.
+- Self-healing and auto-rebalancing.
 
-Semi-structured data::
+CrateDB offers the scalability and flexibility typically associated with a NoSQL database and is designed to run on inexpensive commodity servers and can be deployed and run across any sort of network. From personal computers to multi-region hybrid clouds.
 
-    create table demo (
-        name string,
-        obj object (dynamic) as (
-            age int
-        ),
-        tags array (string)
-    );
+The smallest CrateDB clusters can easily ingest tens of thousands of records per second. And this data can be queried, ad-hoc, in parallel across the whole cluster in real time.
 
-::
+Screenshot
+==========
 
-    insert into demo (name, obj, tags) values
-        ('Trillian',
-         {age = 39, gender='female'}, // Note that gender wasn't defined in the schema!
-         ['mathematician', 'astrophysicist']);
+CrateDB provides an admin UI:
 
-::
+.. image:: blackbox/docs/_static/crate-admin.gif
+    :alt: Screenshots of the CrateDB admin UI
+    :target: http://play.crate.io/
 
-    select * from demo where obj['gender'] = 'female';
+Sandbox
+=======
 
-::
+Try out the live sandbox: http://play.crate.io/
 
-    select * from demo where 'mathematician'= any (tags);
+This is an eight node cluster and each node has quad 3.4Ghz CPUs and 32 GB RAM.
 
+To get a sense of how fast CrateDB is, try running this query::
 
-High availability, resiliency, and scalability in a distributed design::
+  > select avg("fare_amount") from "st.nyc-yellowcab";
 
-    create table t (string name)
-    clustered into 5 shards with (number_of_replicas = 1); // this is actually the default!
+This query calculates an aggregate function across 1.1 billion records and should complete in a few seconds.
 
-::
+Try CrateDB
+===========
 
-    select count(*) from sys.nodes;
-    select table_name, count(*) from sys.shards group by 1;
+The fastest way to try CrateDB out is by running::
 
-Powerful Lucene based full-text search::
+    $ bash -c "$(curl -L try.crate.io)"
 
-    select title from wikipedia where match((title 1.5, text 1.0), 'Hitchhiker')
+Or spin up the official Docker image::
 
-Getting Started
-===============
+    $ docker pull crate && docker run -p 4200:4200 crate
 
-Get CrateDB
------------
+Visit the `getting started`_ page to see all the available download and install options.
 
-There are many ways to install CrateDB. The fastest way to try it out is just one command-line::
+Once you're up and running, head on over to `the introductory docs`_.
 
-    bash -c "$(curl -L try.crate.io)"
+Contributing
+============
 
-Or with docker::
+This project is primarily maintained by `Crate.io`_, but we welcome community
+contributions!
 
-    docker pull crate && docker run -p 4200:4200 crate
+See the `developer docs`_ and the `contribution docs`_ for more information.
 
-Visit our `getting started`_ page to see all available download and install options.
+Help
+====
 
-Use CrateDB
------------
+Looking for more help?
 
-CrateDB includes an Administration UI that is available under http://localhost:4200/admin/.
+- Read `the project documentation`_
+- Check `StackOverflow`_ for common problems
+- Chat with us on `Slack`_
+- Get `paid support`_
 
-It also ships with a CLI called ``crash`` that can be used to run queries in a
-shell.
-
-Next steps
-----------
-
-Start some more server to form a cluster and take a look at the documentation_
-to learn more.
-
-Especially the `crate introduction`_ is a great place to start learning more.
-
-Are you a Developer?
-====================
-
-Clone the repository::
-
-    git clone https://github.com/crate/crate.git
-    cd crate
-    git submodule update --init
-
-And build it with gradle::
-
-    ./gradlew compileJava
-
-Develop in IntelliJ::
-
-    ./gradlew idea
-
-Run tests::
-
-    ./gradlew test
-
-Refer to ``DEVELOP.rst`` and ``CONTRIBUTING.rst`` for further information.
-
-Help & Contact
-==============
-
-Do you have any questions? Or suggestions? We would be very happy
-to help you. So, feel free to to contact us on Slack_.
-
-.. _Slack: https://crate.io/docs/support/slackin/
-
-Or for further information and official contact please
-visit `https://crate.io/ <https://crate.io/>`_.
-
-.. _documentation: https://crate.io/docs/stable/installation.html
+.. _contribution docs: CONTRIBUTING.rst
+.. _Crate.io: http://crate.io/
+.. _developer docs: DEVELOP.rst
 .. _getting started: https://crate.io/docs/getting-started
-.. _crate introduction: https://crate.io/docs/stable/hello.html
+.. _paid support: https://crate.io/pricing/
+.. _Slack: https://crate.io/docs/support/slackin/
+.. _StackOverflow: https://stackoverflow.com/tags/crate
+.. _the introductory docs: https://crate.io/docs/stable/hello.html
+.. _the project documentation: https://crate.io/docs/
