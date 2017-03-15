@@ -29,6 +29,7 @@ import io.crate.analyze.EvaluatingNormalizer;
 import io.crate.analyze.symbol.SelectSymbol;
 import io.crate.data.BatchConsumer;
 import io.crate.data.CollectingBatchConsumer;
+import io.crate.data.FailedBatchIterator;
 import io.crate.data.Row;
 import io.crate.executor.Executor;
 import io.crate.executor.Task;
@@ -146,7 +147,7 @@ public class TransportExecutor implements Executor {
         CompletableFuture<Plan> planFuture = multiPhaseExecutor.process(plan, null);
         planFuture
             .thenAccept(p -> plan2TaskVisitor.process(p, null).execute(consumer, parameters))
-            .exceptionally(t -> { consumer.accept(null, t); return null; });
+            .exceptionally(t -> { consumer.accept(new FailedBatchIterator(t), t); return null; });
     }
 
     @Override
@@ -328,7 +329,7 @@ public class TransportExecutor implements Executor {
                         // since plan's are not mutated to remove them they're still part of the plan tree
                         plan2TaskVisitor.process(p, null).execute(consumer, Row.EMPTY);
                     } else {
-                        consumer.accept(null, e);
+                        consumer.accept(new FailedBatchIterator(e), e);
                     }
                 });
                 dependencyFutures.add(consumer.resultFuture().thenAccept(replacer::onSuccess));

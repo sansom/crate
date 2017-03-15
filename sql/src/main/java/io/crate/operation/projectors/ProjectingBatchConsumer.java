@@ -28,6 +28,7 @@ import io.crate.data.BatchIterator;
 import io.crate.data.Projector;
 import io.crate.planner.projection.Projection;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.UUID;
@@ -79,7 +80,7 @@ public class ProjectingBatchConsumer implements BatchConsumer {
     }
 
     @Override
-    public void accept(BatchIterator iterator, @Nullable Throwable failure) {
+    public void accept(@Nonnull BatchIterator iterator, @Nullable Throwable failure) {
         if (failure == null) {
             for (Projection projection : projections) {
                 Projector projector = projectorFactory.create(projection, ramAccountingContext, jobId);

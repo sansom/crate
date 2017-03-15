@@ -24,10 +24,7 @@ package io.crate.executor.transport.task.elasticsearch;
 import io.crate.Constants;
 import io.crate.analyze.where.DocKeys;
 import io.crate.concurrent.CompletableFutures;
-import io.crate.data.BatchConsumer;
-import io.crate.data.Row;
-import io.crate.data.Row1;
-import io.crate.data.RowsBatchIterator;
+import io.crate.data.*;
 import io.crate.exceptions.SQLExceptions;
 import io.crate.executor.JobTask;
 import io.crate.jobs.ESJobContext;
@@ -115,14 +112,14 @@ public class ESDeleteTask extends JobTask {
         try {
             startContext();
         } catch (Throwable throwable) {
-            consumer.accept(null, throwable);
+            consumer.accept(new FailedBatchIterator(throwable), throwable);
             return;
         }
         result.whenComplete((Long futureResult, Throwable t) -> {
             if (t == null) {
                 consumer.accept(RowsBatchIterator.newInstance(new Row1(futureResult)), null);
             } else {
-                consumer.accept(null, t);
+                consumer.accept(new FailedBatchIterator(t), t);
             }
         });
     }

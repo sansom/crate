@@ -24,6 +24,7 @@ package io.crate.operation.collect;
 
 import io.crate.data.BatchConsumer;
 import io.crate.data.BatchIterator;
+import io.crate.data.FailedBatchIterator;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -70,7 +71,7 @@ public final class BatchIteratorCollectorBridge {
                 batchIterator.kill(throwable);
             } else {
                 started = true;
-                consumer.accept(null, throwable);
+                consumer.accept(new FailedBatchIterator(throwable), throwable);
             }
         }
     }
@@ -98,7 +99,7 @@ public final class BatchIteratorCollectorBridge {
                     consumer.accept(bi, failure);
                 });
             } else {
-                consumer.accept(null, killed);
+                consumer.accept(new FailedBatchIterator(killed), killed);
             }
         }
 

@@ -26,6 +26,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.analyze.WhereClause;
 import io.crate.data.BatchConsumer;
+import io.crate.data.FailedBatchIterator;
 import io.crate.data.Row1;
 import io.crate.data.RowsBatchIterator;
 import io.crate.operation.count.CountOperation;
@@ -78,7 +79,7 @@ public class CountContext extends AbstractExecutionSubContext {
 
             @Override
             public void onFailure(@Nonnull Throwable t) {
-                consumer.accept(null, t);
+                consumer.accept(new FailedBatchIterator(t), t);
                 close(t);
             }
         });
@@ -87,7 +88,7 @@ public class CountContext extends AbstractExecutionSubContext {
     @Override
     public synchronized void innerKill(@Nonnull Throwable throwable) {
         if (countFuture == null) {
-            consumer.accept(null, throwable);
+            consumer.accept(new FailedBatchIterator(throwable), throwable);
         } else {
             countFuture.cancel(true);
         }

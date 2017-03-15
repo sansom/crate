@@ -28,6 +28,7 @@ import io.crate.action.job.JobResponse;
 import io.crate.action.job.TransportJobAction;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.data.BatchConsumer;
+import io.crate.data.FailedBatchIterator;
 import io.crate.data.Row;
 import io.crate.executor.transport.kill.KillJobsRequest;
 import io.crate.executor.transport.kill.KillResponse;
@@ -102,7 +103,8 @@ public class RemoteCollector implements CrateCollector {
         try {
             synchronized (killLock) {
                 if (collectorKilled) {
-                    consumer.accept(null, new InterruptedException());
+                    InterruptedException interruptedException = new InterruptedException();
+                    consumer.accept(new FailedBatchIterator(interruptedException), interruptedException);
                     return false;
                 }
                 context = jobContextService.createContext(builder);
@@ -111,7 +113,7 @@ public class RemoteCollector implements CrateCollector {
             }
         } catch (Throwable t) {
             if (context == null) {
-                consumer.accept(null, t);
+                consumer.accept(new FailedBatchIterator(t), t);
             } else {
                 context.kill();
             }

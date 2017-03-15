@@ -22,42 +22,54 @@
 
 package io.crate.data;
 
+import io.crate.concurrent.CompletableFutures;
+import io.crate.exceptions.Exceptions;
+
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.concurrent.CompletableFuture;
+import java.util.Collections;
+import java.util.concurrent.CompletionStage;
 
-public class ListenableBatchConsumer implements BatchConsumer {
+public class FailedBatchIterator implements BatchIterator {
 
-    private final BatchConsumer delegate;
-    private final CompletableFuture<Void> completionFuture = new CompletableFuture<>();
+    private static final ListBackedColumns EMPTY_COLUMNS = new ListBackedColumns(Collections.emptyList());
+    private final Throwable failure;
 
-    public ListenableBatchConsumer(BatchConsumer delegate) {
-        this.delegate = delegate;
+    public FailedBatchIterator(Throwable failure) {
+        this.failure = failure;
     }
 
     @Override
-    public void accept(@Nonnull BatchIterator iterator, @Nullable Throwable failure) {
-        if (failure == null) {
-            delegate.accept(new ListenableBatchIterator(iterator, completionFuture), null);
-        } else {
-            delegate.accept(iterator, failure);
-            completionFuture.completeExceptionally(failure);
-        }
+    public void kill(@Nonnull Throwable throwable) {
     }
 
     @Override
-    public boolean requiresScroll() {
-        return delegate.requiresScroll();
-    }
-
-    public CompletableFuture<?> completionFuture() {
-        return completionFuture;
+    public Columns rowData() {
+        return EMPTY_COLUMNS;
     }
 
     @Override
-    public String toString() {
-        return "ListenableBatchConsumer{" +
-               "delegate=" + delegate +
-               '}';
+    public void moveToStart() {
+        Exceptions.rethrowUnchecked(failure);
+    }
+
+    @Override
+    public boolean moveNext() {
+        Exceptions.rethrowUnchecked(failure);
+        return false;
+    }
+
+    @Override
+    public void close() {
+    }
+
+    @Override
+    public CompletionStage<?> loadNextBatch() {
+        return CompletableFutures.failedFuture(failure);
+    }
+
+    @Override
+    public boolean allLoaded() {
+        Exceptions.rethrowUnchecked(failure);
+        return true;
     }
 }

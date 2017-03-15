@@ -24,6 +24,7 @@ package io.crate.executor.transport;
 
 import com.google.common.base.Function;
 import io.crate.data.BatchConsumer;
+import io.crate.data.FailedBatchIterator;
 import io.crate.data.Row;
 import io.crate.data.RowsBatchIterator;
 import org.elasticsearch.action.ActionListener;
@@ -48,7 +49,7 @@ public class OneRowActionListener<Response> implements ActionListener<Response>,
 
     @Override
     public void onFailure(@Nonnull Throwable e) {
-        consumer.accept(null, e);
+        consumer.accept(new FailedBatchIterator(e), e);
     }
 
     @Override

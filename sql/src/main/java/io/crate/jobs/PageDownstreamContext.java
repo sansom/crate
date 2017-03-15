@@ -28,6 +28,7 @@ import io.crate.Streamer;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.data.BatchConsumer;
 import io.crate.data.Bucket;
+import io.crate.data.FailedBatchIterator;
 import io.crate.data.Row;
 import io.crate.operation.PageResultListener;
 import io.crate.operation.merge.BatchPagingIterator;
@@ -266,7 +267,7 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         if (receivingFirstPage) {
             // no active consumer - can "activate" it with a failure
             receivingFirstPage = false;
-            consumer.accept(null, t); // should eventually trigger a closeCallback that releases any open listeners
+            consumer.accept(new FailedBatchIterator(t), t); // should eventually trigger a closeCallback that releases any open listeners
         }
     }
 

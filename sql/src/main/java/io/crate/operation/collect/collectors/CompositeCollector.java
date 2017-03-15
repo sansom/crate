@@ -27,6 +27,7 @@ import io.crate.data.BatchIterator;
 import io.crate.data.CompositeBatchIterator;
 import io.crate.operation.collect.CrateCollector;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -92,7 +93,7 @@ public class CompositeCollector implements CrateCollector {
         private final Function<BatchIterator[], BatchIterator> compositeBatchIteratorFactory;
 
         private AtomicInteger remainingAccepts;
-        private Throwable lastFailure;
+        private volatile Throwable lastFailure;
 
         private MultiConsumer(int numAccepts,
                               BatchConsumer consumer,
@@ -104,7 +105,7 @@ public class CompositeCollector implements CrateCollector {
         }
 
         @Override
-        public void accept(BatchIterator iterator, @Nullable Throwable failure) {
+        public void accept(@Nonnull BatchIterator iterator, @Nullable Throwable failure) {
             int remaining = remainingAccepts.decrementAndGet();
             if (failure != null) {
                 lastFailure = failure;
@@ -113,12 +114,7 @@ public class CompositeCollector implements CrateCollector {
                 iterators[remaining] = iterator;
             }
             if (remaining == 0) {
-                // null checks to avoid using the factory with potential null-entries within the iterators
-                if (lastFailure == null) {
-                    consumer.accept(compositeBatchIteratorFactory.apply(iterators), null);
-                } else {
-                    consumer.accept(null, lastFailure);
-                }
+                consumer.accept(compositeBatchIteratorFactory.apply(iterators), lastFailure);
             }
         }
 
