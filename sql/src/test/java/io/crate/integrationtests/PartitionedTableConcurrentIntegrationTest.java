@@ -22,13 +22,17 @@
 
 package io.crate.integrationtests;
 
+import com.carrotsearch.randomizedtesting.annotations.Repeat;
 import io.crate.data.Bucket;
 import io.crate.data.CollectionBucket;
+import io.crate.executor.transport.distributed.DistributedResultResponse;
+import io.crate.executor.transport.distributed.TransportDistributedResultAction;
 import io.crate.metadata.PartitionName;
 import io.crate.testing.SQLResponse;
 import io.crate.testing.SQLTransportExecutor;
 import io.crate.testing.UseJdbc;
 import org.apache.lucene.util.BytesRef;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.reroute.ClusterRerouteRequestBuilder;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.cluster.metadata.MetaData;
@@ -41,6 +45,7 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.Test;
 
@@ -66,6 +71,7 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
      * Test depends on 2 data nodes
      */
     @Test
+    @Repeat(iterations = 100)
     public void testSelectWhileShardsAreRelocating() throws Throwable {
         execute("create table t (name string, p string) " +
                 "clustered into 2 shards " +
@@ -170,6 +176,23 @@ public class PartitionedTableConcurrentIntegrationTest extends SQLTransportInteg
 
         t.join();
         relocatingThread.join();
+
+        Iterable<TransportDistributedResultAction> distributedResultActions = internalCluster().getInstances(TransportDistributedResultAction.class);
+        try {
+            assertBusy(() -> {
+                for (TransportDistributedResultAction distributedResultAction : distributedResultActions) {
+                    assertThat(distributedResultAction.operationsWaitingForContext(), is(0L));
+                    assertThat(distributedResultAction.openListeners().values(), Matchers.empty());
+                }
+            });
+        } finally {
+            for (TransportDistributedResultAction distributedResultAction : distributedResultActions) {
+                for (ActionListener<DistributedResultResponse> listener : distributedResultAction.openListeners().keySet()) {
+                    listener.onFailure(new IllegalStateException("FUCKED UP"));
+                }
+                distributedResultAction.openListeners().clear();
+            }
+        }
     }
 
     private Bucket deletePartitionsAndExecutePlan(String stmt) throws Exception {

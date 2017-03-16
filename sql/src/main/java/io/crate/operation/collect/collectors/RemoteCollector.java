@@ -163,6 +163,7 @@ public class RemoteCollector implements CrateCollector {
         builder.addSubContext(new PageDownstreamContext(
             LOGGER,
             localNode,
+            jobId,
             RECEIVER_PHASE_ID,
             "remoteCollectReceiver",
             consumer,

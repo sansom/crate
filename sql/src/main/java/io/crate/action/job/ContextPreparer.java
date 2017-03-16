@@ -505,6 +505,7 @@ public class ContextPreparer extends AbstractComponent {
             context.registerSubContext(new PageDownstreamContext(
                 pageDownstreamContextLogger,
                 nodeName(),
+                phase.jobId(),
                 phase.phaseId(),
                 phase.name(),
                 consumer,
@@ -633,6 +634,7 @@ public class ContextPreparer extends AbstractComponent {
             return new PageDownstreamContext(
                 pageDownstreamContextLogger,
                 nodeName(),
+                mergePhase.jobId(),
                 mergePhase.phaseId(),
                 mergePhase.name(),
                 batchConsumer,

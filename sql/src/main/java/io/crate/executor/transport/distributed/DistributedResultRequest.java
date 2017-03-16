@@ -30,6 +30,7 @@ import org.elasticsearch.transport.TransportRequest;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.UUID;
 
 public class DistributedResultRequest extends TransportRequest {
@@ -167,5 +168,20 @@ public class DistributedResultRequest extends TransportRequest {
             // TODO: we should not rely on another bucket in this class and instead write to the stream directly
             StreamBucket.writeBucket(out, streamers, rows);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "DistributedResultRequest{" +
+               "inputId=" + inputId +
+               ", executionPhaseId=" + executionPhaseId +
+               ", bucketIdx=" + bucketIdx +
+               ", streamers=" + Arrays.toString(streamers) +
+               ", rows=" + rows +
+               ", jobId=" + jobId +
+               ", isLast=" + isLast +
+               ", throwable=" + throwable +
+               ", isKilled=" + isKilled +
+               '}';
     }
 }

@@ -42,6 +42,7 @@ import org.junit.Test;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.hamcrest.Matchers.instanceOf;
@@ -59,6 +60,7 @@ public class PageDownstreamContextTest extends CrateUnitTest {
         return new PageDownstreamContext(
             Loggers.getLogger(PageDownstreamContext.class),
             "n1",
+            UUID.randomUUID(),
             1,
             "dummy",
             batchConsumer,

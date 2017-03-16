@@ -107,16 +107,17 @@ public class DistributingConsumerTest extends CrateUnitTest {
 
     private PageDownstreamContext createPageDownstreamContext(Streamer<?>[] streamers, TestingBatchConsumer collectingConsumer) {
         return new PageDownstreamContext(
-                logger,
-                "n1",
-                1,
-                "dummy",
-                collectingConsumer,
-                PassThroughPagingIterator.oneShot(),
-                streamers,
-                new RamAccountingContext("dummy", new NoopCircuitBreaker("dummy")),
-                1
-            );
+            logger,
+            "n1",
+            UUID.randomUUID(),
+            1,
+            "dummy",
+            collectingConsumer,
+            PassThroughPagingIterator.oneShot(),
+            streamers,
+            new RamAccountingContext("dummy", new NoopCircuitBreaker("dummy")),
+            1
+        );
     }
 
     private TransportDistributedResultAction createFakeTransport(Streamer<?>[] streamers, PageDownstreamContext pageDownstreamContext) {

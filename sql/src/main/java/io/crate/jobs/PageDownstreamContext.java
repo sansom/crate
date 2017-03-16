@@ -37,13 +37,11 @@ import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 public class PageDownstreamContext extends AbstractExecutionSubContext implements DownstreamExecutionSubContext, PageBucketReceiver {
 
+    private final UUID jobId;
     private final String name;
     private final Object lock = new Object();
     private final String nodeName;
@@ -63,6 +61,7 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
 
     public PageDownstreamContext(Logger logger,
                                  String nodeName,
+                                 UUID jobId,
                                  int id,
                                  String name,
                                  BatchConsumer batchConsumer,
@@ -72,6 +71,7 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
                                  int numBuckets) {
         super(id, logger);
         this.nodeName = nodeName;
+        this.jobId = jobId;
         this.name = name;
         this.streamers = streamers;
         this.ramAccountingContext = ramAccountingContext;
@@ -92,10 +92,12 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     }
 
     private void releaseListenersAndCloseContext(@Nullable Throwable throwable) {
-        for (ObjectCursor<PageResultListener> cursor : listenersByBucketIdx.values()) {
-            cursor.value.needMore(false);
+        synchronized (listenersByBucketIdx) {
+            for (ObjectCursor<PageResultListener> cursor : listenersByBucketIdx.values()) {
+                cursor.value.needMore(false);
+            }
+            listenersByBucketIdx.clear();
         }
-        listenersByBucketIdx.clear();
         close(throwable);
     }
 
@@ -106,7 +108,11 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     @Override
     public void setBucket(int bucketIdx, Bucket rows, boolean isLast, PageResultListener pageResultListener) {
         synchronized (listenersByBucketIdx) {
-            listenersByBucketIdx.put(bucketIdx, pageResultListener);
+            if (lastThrowable == null) {
+                listenersByBucketIdx.put(bucketIdx, pageResultListener);
+            } else {
+                pageResultListener.needMore(false);
+            }
         }
         synchronized (lock) {
             traceLog("method=setBucket", bucketIdx);
@@ -126,7 +132,7 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         }
     }
 
-    private synchronized void triggerConsumer() {
+    private void triggerConsumer() {
         if (receivingFirstPage) {
             receivingFirstPage = false;
             consumer.accept(batchPagingIterator, lastThrowable);
@@ -217,6 +223,7 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     @Override
     public void killed(int bucketIdx, Throwable throwable) {
         traceLog("method=killed", bucketIdx, throwable);
+        System.out.println("## KILLED ");
         synchronized (lock) {
             if (bucketsByIdx.putIfAbsent(bucketIdx, Bucket.EMPTY) == false) {
                 traceLog("method=killed future already set", bucketIdx);
@@ -234,7 +241,6 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
         exhausted.set(bucketIdx);
         if (bucketsByIdx.size() == numBuckets) {
             triggerConsumer();
-            releaseListenersAndCloseContext(throwable);
         }
     }
 
@@ -259,14 +265,23 @@ public class PageDownstreamContext extends AbstractExecutionSubContext implement
     }
 
     @Override
-    protected synchronized void innerKill(@Nonnull Throwable t) {
-        lastThrowable = t;
-        batchPagingIterator.kill(t); // this causes a already active consumer to fail
-        batchPagingIterator.close();
-        if (receivingFirstPage) {
-            // no active consumer - can "activate" it with a failure
-            receivingFirstPage = false;
-            consumer.accept(null, t); // should eventually trigger a closeCallback that releases any open listeners
+    protected void innerKill(@Nonnull Throwable t) {
+        System.out.println("### INNER KILL + " + jobId + ", listeners=" + listenersByBucketIdx + ", receivingFirstPage=" + receivingFirstPage);
+        synchronized (listenersByBucketIdx) {
+            lastThrowable = t;
+            for (IntObjectCursor<PageResultListener> cursor : listenersByBucketIdx) {
+                cursor.value.needMore(false);
+            }
+            listenersByBucketIdx.clear();
+        }
+        synchronized (lock) {
+            batchPagingIterator.kill(t); // this causes a already active consumer to fail
+            batchPagingIterator.close();
+            if (receivingFirstPage) {
+                // no active consumer - can "activate" it with a failure
+                receivingFirstPage = false;
+                consumer.accept(null, t); // should eventually trigger a closeCallback that releases any open listeners
+            }
         }
     }
 

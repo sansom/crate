@@ -122,7 +122,9 @@ public class JobExecutionContextTest extends CrateUnitTest {
         PageDownstreamContext pageDownstreamContext = spy(new PageDownstreamContext(
             Loggers.getLogger(PageDownstreamContext.class),
             "n1",
-            2, "dummy",
+            collectPhase.jobId(),
+            2,
+            "dummy",
             batchConsumer,
             PassThroughPagingIterator.oneShot(),
             new Streamer[]{IntegerType.INSTANCE.streamer()},
