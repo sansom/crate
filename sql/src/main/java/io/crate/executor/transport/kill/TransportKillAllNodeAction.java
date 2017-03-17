@@ -21,13 +21,14 @@
 
 package io.crate.executor.transport.kill;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import io.crate.jobs.JobContextService;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.inject.Singleton;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.transport.TransportService;
+
+import java.util.concurrent.CompletableFuture;
 
 @Singleton
 public class TransportKillAllNodeAction extends TransportKillNodeAction<KillAllRequest> {
@@ -41,7 +42,7 @@ public class TransportKillAllNodeAction extends TransportKillNodeAction<KillAllR
     }
 
     @Override
-    protected ListenableFuture<Integer> doKill(KillAllRequest request) {
+    protected CompletableFuture<Integer> doKill(KillAllRequest request) {
         return jobContextService.killAll();
     }
 
