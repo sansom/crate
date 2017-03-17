@@ -22,8 +22,7 @@
 package io.crate.executor.transport;
 
 import io.crate.action.job.TransportJobAction;
-import io.crate.executor.transport.kill.TransportKillAllNodeAction;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
+import io.crate.executor.transport.kill.TransportKillAction;
 import org.elasticsearch.action.admin.cluster.settings.TransportClusterUpdateSettingsAction;
 import org.elasticsearch.action.admin.cluster.snapshots.create.TransportCreateSnapshotAction;
 import org.elasticsearch.action.admin.cluster.snapshots.delete.TransportDeleteSnapshotAction;
@@ -62,8 +61,7 @@ public class TransportActionProvider {
     private final Provider<TransportBulkCreateIndicesAction> transportBulkCreateIndicesActionProvider;
 
     private final Provider<TransportJobAction> transportJobInitActionProvider;
-    private final Provider<TransportKillAllNodeAction> transportKillAllNodeActionProvider;
-    private final Provider<TransportKillJobsNodeAction> transportKillJobsNodeActionProvider;
+    private final Provider<TransportKillAction> transportKillActionProvider;
 
     private final Provider<TransportCreateSnapshotAction> transportCreateSnapshotActionProvider;
     private final Provider<TransportDeleteSnapshotAction> transportDeleteSnapshotActionProvider;
@@ -82,12 +80,11 @@ public class TransportActionProvider {
                                    Provider<TransportGetAction> transportGetActionProvider,
                                    Provider<TransportMultiGetAction> transportMultiGetActionProvider,
                                    Provider<TransportShardUpsertAction> transportShardUpsertActionProvider,
-                                   Provider<TransportKillAllNodeAction> transportKillAllNodeActionProvider,
+                                   Provider<TransportKillAction> transportKillActionProvider,
                                    Provider<TransportPutMappingAction> transportPutMappingActionProvider,
                                    Provider<TransportUpdateSettingsAction> transportUpdateSettingsActionProvider,
                                    Provider<TransportJobAction> transportJobInitActionProvider,
                                    Provider<TransportBulkCreateIndicesAction> transportBulkCreateIndicesActionProvider,
-                                   Provider<TransportKillJobsNodeAction> transportKillJobsNodeActionProvider,
                                    Provider<TransportDeleteSnapshotAction> transportDeleteSnapshotActionProvider,
                                    Provider<TransportCreateSnapshotAction> transportCreateSnapshotActionProvider,
                                    Provider<TransportRestoreSnapshotAction> transportRestoreSnapshotActionProvider,
@@ -102,13 +99,12 @@ public class TransportActionProvider {
         this.transportGetActionProvider = transportGetActionProvider;
         this.transportMultiGetActionProvider = transportMultiGetActionProvider;
         this.transportShardUpsertActionProvider = transportShardUpsertActionProvider;
-        this.transportKillAllNodeActionProvider = transportKillAllNodeActionProvider;
+        this.transportKillActionProvider = transportKillActionProvider;
         this.transportFetchNodeActionProvider = transportFetchNodeActionProvider;
         this.transportPutMappingActionProvider = transportPutMappingActionProvider;
         this.transportUpdateSettingsActionProvider = transportUpdateSettingsActionProvider;
         this.transportJobInitActionProvider = transportJobInitActionProvider;
         this.transportBulkCreateIndicesActionProvider = transportBulkCreateIndicesActionProvider;
-        this.transportKillJobsNodeActionProvider = transportKillJobsNodeActionProvider;
         this.transportDeleteSnapshotActionProvider = transportDeleteSnapshotActionProvider;
         this.transportCreateSnapshotActionProvider = transportCreateSnapshotActionProvider;
         this.transportRestoreSnapshotActionProvider = transportRestoreSnapshotActionProvider;
@@ -175,12 +171,8 @@ public class TransportActionProvider {
         return transportUpdateSettingsActionProvider.get();
     }
 
-    public TransportKillAllNodeAction transportKillAllNodeAction() {
-        return transportKillAllNodeActionProvider.get();
-    }
-
-    public TransportKillJobsNodeAction transportKillJobsNodeAction() {
-        return transportKillJobsNodeActionProvider.get();
+    public TransportKillAction transportKillAction() {
+        return transportKillActionProvider.get();
     }
 
     public TransportDeleteSnapshotAction transportDeleteSnapshotAction() {

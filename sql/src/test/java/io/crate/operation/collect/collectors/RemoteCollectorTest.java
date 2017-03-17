@@ -30,7 +30,7 @@ import io.crate.analyze.WhereClause;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.executor.transport.kill.KillJobsRequest;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
+import io.crate.executor.transport.kill.TransportKillAction;
 import io.crate.jobs.JobContextService;
 import io.crate.metadata.Routing;
 import io.crate.metadata.RowGranularity;
@@ -67,7 +67,7 @@ public class RemoteCollectorTest {
     public ExpectedException expectedException = ExpectedException.none();
 
     private TransportJobAction transportJobAction;
-    private TransportKillJobsNodeAction transportKillJobsNodeAction;
+    private TransportKillAction killAction;
     private RemoteCollector remoteCollector;
     private TestingBatchConsumer consumer;
 
@@ -90,7 +90,7 @@ public class RemoteCollectorTest {
             DistributionInfo.DEFAULT_BROADCAST
         );
         transportJobAction = mock(TransportJobAction.class);
-        transportKillJobsNodeAction = mock(TransportKillJobsNodeAction.class);
+        killAction = mock(TransportKillAction.class);
         consumer = new TestingBatchConsumer();
 
         JobsLogs jobsLogs = new JobsLogs(() -> true);
@@ -100,7 +100,7 @@ public class RemoteCollectorTest {
             "localNode",
             "remoteNode",
             transportJobAction,
-            transportKillJobsNodeAction,
+            killAction,
             jobContextService,
             mock(RamAccountingContext.class),
             consumer,
@@ -141,6 +141,6 @@ public class RemoteCollectorTest {
         ActionListener<JobResponse> listener = listenerCaptor.getValue();
         listener.onResponse(new JobResponse());
 
-        verify(transportKillJobsNodeAction, times(1)).broadcast(any(KillJobsRequest.class), any(ActionListener.class));
+        verify(killAction, times(1)).broadcast(any(KillJobsRequest.class), any(ActionListener.class));
     }
 }

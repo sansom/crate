@@ -37,7 +37,7 @@ public class KillJobsRequestTest extends CrateUnitTest {
     @Test
     public void testStreaming() throws Exception {
         ImmutableList<UUID> toKill = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID());
-        KillJobsRequest r = new KillJobsRequest(toKill);
+        KillJobsRequest r = new KillJobsRequest(toKill, true);
 
         BytesStreamOutput out = new BytesStreamOutput();
         r.writeTo(out);
@@ -46,6 +46,6 @@ public class KillJobsRequestTest extends CrateUnitTest {
         KillJobsRequest r2 = new KillJobsRequest();
         r2.readFrom(in);
 
-        assertThat(r.toKill(), equalTo(r2.toKill()));
+        assertThat(r.jobIdFilter(), equalTo(r2.jobIdFilter()));
     }
 }

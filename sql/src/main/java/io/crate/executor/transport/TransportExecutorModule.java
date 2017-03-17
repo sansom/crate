@@ -25,8 +25,7 @@ import io.crate.action.job.ContextPreparer;
 import io.crate.action.job.TransportJobAction;
 import io.crate.executor.Executor;
 import io.crate.executor.transport.distributed.TransportDistributedResultAction;
-import io.crate.executor.transport.kill.TransportKillAllNodeAction;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
+import io.crate.executor.transport.kill.TransportKillAction;
 import io.crate.lucene.LuceneQueryBuilder;
 import org.elasticsearch.common.inject.AbstractModule;
 
@@ -44,8 +43,7 @@ public class TransportExecutorModule extends AbstractModule {
         bind(TransportShardUpsertAction.class).asEagerSingleton();
         bind(TransportShardDeleteAction.class).asEagerSingleton();
         bind(TransportFetchNodeAction.class).asEagerSingleton();
-        bind(TransportKillAllNodeAction.class).asEagerSingleton();
-        bind(TransportKillJobsNodeAction.class).asEagerSingleton();
+        bind(TransportKillAction.class).asEagerSingleton();
         bind(TransportNodeStatsAction.class).asEagerSingleton();
     }
 }

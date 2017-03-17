@@ -22,6 +22,7 @@
 package io.crate.jobs;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import io.crate.concurrent.CountdownFutureCallback;
 import io.crate.exceptions.ContextMissingException;
 import io.crate.operation.collect.stats.JobsLogs;
@@ -39,6 +40,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Singleton
@@ -144,23 +146,37 @@ public class JobContextService extends AbstractLifecycleComponent<JobContextServ
      * @return a future holding the number of contexts kill was called on, the future is finished when all contexts
      * are completed and never fails.
      */
-    public CompletableFuture<Integer> killAll() {
-        for (KillAllListener killAllListener : killAllListeners) {
-            try {
-                killAllListener.killAllJobs();
-            } catch (Throwable t) {
-                logger.error("Failed to call killAllJobs on listener {}", t, killAllListener);
+    public CompletableFuture<Integer> kill(Collection<UUID> jobIdFilter, boolean coordinatorCtxOnly) {
+        if (coordinatorCtxOnly) {
+            Stream<UUID> jobIds = getJobIdsByCoordinatorNode(clusterService.localNode().getId());
+            List<UUID> toKill;
+            if (jobIdFilter.isEmpty()) {
+                toKill = jobIds.collect(Collectors.toList());
+            } else {
+                toKill = Sets.intersection(Sets.newHashSet(jobIdFilter), jobIds.collect(Collectors.toSet()))
+                    .stream()
+                    .collect(Collectors.toList());
             }
+            return killContexts(toKill);
+        } else if (jobIdFilter.isEmpty()) {
+            for (KillAllListener killAllListener : killAllListeners) {
+                try {
+                    killAllListener.killAllJobs();
+                } catch (Throwable t) {
+                    logger.error("Failed to call killAllJobs on listener {}", t, killAllListener);
+                }
+            }
+            Collection<UUID> toKill = ImmutableList.copyOf(activeContexts.keySet());
+            return killContexts(toKill);
+        } else {
+            return killContexts(jobIdFilter);
         }
-        Collection<UUID> toKill = ImmutableList.copyOf(activeContexts.keySet());
-        if (toKill.isEmpty()) {
-            return CompletableFuture.completedFuture(0);
-        }
-        return killContexts(toKill);
     }
 
     private CompletableFuture<Integer> killContexts(Collection<UUID> toKill) {
-        assert !toKill.isEmpty() : "toKill must not be empty";
+        if (toKill.isEmpty()) {
+            return CompletableFuture.completedFuture(0);
+        }
         int numKilled = 0;
         CountdownFutureCallback countDownFuture = new CountdownFutureCallback(toKill.size());
         for (UUID jobId : toKill) {

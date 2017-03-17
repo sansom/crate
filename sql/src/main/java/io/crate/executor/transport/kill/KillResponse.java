@@ -21,14 +21,13 @@
 
 package io.crate.executor.transport.kill;
 
-import com.google.common.base.Function;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.transport.TransportResponse;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Function;
 
 public class KillResponse extends TransportResponse {
 
@@ -59,10 +58,7 @@ public class KillResponse extends TransportResponse {
 
     static class MergeKillResponseFunction implements Function<List<KillResponse>, KillResponse> {
         @Override
-        public KillResponse apply(@Nullable List<KillResponse> input) {
-            if (input == null) {
-                return new KillResponse(0);
-            }
+        public KillResponse apply(List<KillResponse> input) {
             long numKilled = 0;
             for (KillResponse killResponse : input) {
                 numKilled += killResponse.numKilled();

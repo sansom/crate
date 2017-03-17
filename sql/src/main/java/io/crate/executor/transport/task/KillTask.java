@@ -27,11 +27,12 @@ import io.crate.data.Row;
 import io.crate.data.Row1;
 import io.crate.executor.JobTask;
 import io.crate.executor.transport.OneRowActionListener;
-import io.crate.executor.transport.kill.KillAllRequest;
+import io.crate.executor.transport.kill.KillJobsRequest;
 import io.crate.executor.transport.kill.KillResponse;
-import io.crate.executor.transport.kill.TransportKillAllNodeAction;
+import io.crate.executor.transport.kill.TransportKillAction;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.UUID;
 
 public class KillTask extends JobTask {
@@ -43,16 +44,17 @@ public class KillTask extends JobTask {
             return new Row1(input == null ? -1 : input.numKilled());
         }
     };
-    private final TransportKillAllNodeAction nodeAction;
+    private final TransportKillAction nodeAction;
 
-    public KillTask(TransportKillAllNodeAction nodeAction, UUID jobId) {
+    public KillTask(TransportKillAction nodeAction, UUID jobId) {
         super(jobId);
         this.nodeAction = nodeAction;
     }
 
     @Override
     public void execute(BatchConsumer consumer, Row parameters) {
-        nodeAction.broadcast(new KillAllRequest(),
+        nodeAction.broadcast(
+            new KillJobsRequest(Collections.emptyList(), true),
             new OneRowActionListener<>(consumer, KILL_RESPONSE_TO_ROW_FUNCTION));
     }
 }

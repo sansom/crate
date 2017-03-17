@@ -22,8 +22,8 @@
 package io.crate.executor.transport.task;
 
 import io.crate.data.Row;
-import io.crate.executor.transport.kill.KillAllRequest;
-import io.crate.executor.transport.kill.TransportKillAllNodeAction;
+import io.crate.executor.transport.kill.KillJobsRequest;
+import io.crate.executor.transport.kill.TransportKillAction;
 import io.crate.test.integration.CrateUnitTest;
 import io.crate.testing.TestingBatchConsumer;
 import org.elasticsearch.action.ActionListener;
@@ -38,11 +38,12 @@ public class KillTaskTest extends CrateUnitTest {
     @SuppressWarnings("unchecked")
     @Test
     public void testKillTaskCallsBroadcastOnTransportKillAllNodeAction() throws Exception {
-        TransportKillAllNodeAction killAllNodeAction = mock(TransportKillAllNodeAction.class);
+        TransportKillAction killAllNodeAction = mock(TransportKillAction.class);
         KillTask task = new KillTask(killAllNodeAction, UUID.randomUUID());
 
         task.execute(new TestingBatchConsumer(), Row.EMPTY);
-        verify(killAllNodeAction, times(1)).broadcast(any(KillAllRequest.class), any(ActionListener.class));
-        verify(killAllNodeAction, times(0)).nodeOperation(any(KillAllRequest.class), any(ActionListener.class));
+        verify(killAllNodeAction, times(1)).broadcast(any(KillJobsRequest.class), any(ActionListener.class));
+        fail("fixme");
+        //verify(killAllNodeAction, times(0)).nodeOperation(any(KillAllRequest.class), any(ActionListener.class));
     }
 }

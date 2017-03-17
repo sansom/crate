@@ -31,7 +31,7 @@ import io.crate.data.BatchConsumer;
 import io.crate.data.Row;
 import io.crate.executor.transport.kill.KillJobsRequest;
 import io.crate.executor.transport.kill.KillResponse;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
+import io.crate.executor.transport.kill.TransportKillAction;
 import io.crate.jobs.JobContextService;
 import io.crate.jobs.JobExecutionContext;
 import io.crate.jobs.PageDownstreamContext;
@@ -57,7 +57,7 @@ public class RemoteCollector implements CrateCollector {
     private final String localNode;
     private final String remoteNode;
     private final TransportJobAction transportJobAction;
-    private final TransportKillJobsNodeAction transportKillJobsNodeAction;
+    private final TransportKillAction killAction;
     private final JobContextService jobContextService;
     private final RamAccountingContext ramAccountingContext;
     private final BatchConsumer consumer;
@@ -72,7 +72,7 @@ public class RemoteCollector implements CrateCollector {
                            String localNode,
                            String remoteNode,
                            TransportJobAction transportJobAction,
-                           TransportKillJobsNodeAction transportKillJobsNodeAction,
+                           TransportKillAction killAction,
                            JobContextService jobContextService,
                            RamAccountingContext ramAccountingContext,
                            BatchConsumer consumer,
@@ -83,7 +83,7 @@ public class RemoteCollector implements CrateCollector {
 
         this.scrollRequired = consumer.requiresScroll();
         this.transportJobAction = transportJobAction;
-        this.transportKillJobsNodeAction = transportKillJobsNodeAction;
+        this.killAction = killAction;
         this.jobContextService = jobContextService;
         this.ramAccountingContext = ramAccountingContext;
         this.consumer = consumer;
@@ -175,7 +175,7 @@ public class RemoteCollector implements CrateCollector {
     }
 
     private void killRemoteContext() {
-        transportKillJobsNodeAction.broadcast(new KillJobsRequest(Collections.singletonList(jobId)),
+        killAction.broadcast(new KillJobsRequest(Collections.singletonList(jobId), true),
             new ActionListener<KillResponse>() {
 
                 @Override

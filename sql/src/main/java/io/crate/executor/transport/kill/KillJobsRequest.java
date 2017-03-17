@@ -32,36 +32,40 @@ import java.util.UUID;
 
 public class KillJobsRequest extends TransportRequest {
 
-    private Collection<UUID> toKill;
+    private Collection<UUID> jobIdFilter;
+    private boolean coordinatorCtxOnly = true;
 
     KillJobsRequest() {
     }
 
-    public KillJobsRequest(Collection<UUID> jobsToKill) {
-        toKill = jobsToKill;
+    public KillJobsRequest(Collection<UUID> jobIdFilter, boolean coordinatorCtxOnly) {
+        this.jobIdFilter = jobIdFilter;
+        this.coordinatorCtxOnly = coordinatorCtxOnly;
     }
 
-    Collection<UUID> toKill() {
-        return toKill;
+    Collection<UUID> jobIdFilter() {
+        return jobIdFilter;
     }
 
     @Override
     public void readFrom(StreamInput in) throws IOException {
         super.readFrom(in);
+        coordinatorCtxOnly = in.readBoolean();
         int numJobs = in.readVInt();
-        toKill = new ArrayList<>(numJobs);
+        jobIdFilter = new ArrayList<>(numJobs);
         for (int i = 0; i < numJobs; i++) {
             UUID job = new UUID(in.readLong(), in.readLong());
-            toKill.add(job);
+            jobIdFilter.add(job);
         }
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        int numJobs = toKill.size();
+        out.writeBoolean(coordinatorCtxOnly);
+        int numJobs = jobIdFilter.size();
         out.writeVInt(numJobs);
-        for (UUID job : toKill) {
+        for (UUID job : jobIdFilter) {
             out.writeLong(job.getMostSignificantBits());
             out.writeLong(job.getLeastSignificantBits());
         }
@@ -69,6 +73,10 @@ public class KillJobsRequest extends TransportRequest {
 
     @Override
     public String toString() {
-        return "KillJobsRequest{" + toKill + '}';
+        return "KillJobsRequest{" + jobIdFilter + '}';
+    }
+
+    public boolean coordinatorCtxOnly() {
+        return coordinatorCtxOnly;
     }
 }

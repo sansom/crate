@@ -27,7 +27,7 @@ import io.crate.data.BatchIterator;
 import io.crate.exceptions.SQLExceptions;
 import io.crate.executor.transport.kill.KillJobsRequest;
 import io.crate.executor.transport.kill.KillResponse;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
+import io.crate.executor.transport.kill.TransportKillAction;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
@@ -45,7 +45,7 @@ class InterceptingBatchConsumer implements BatchConsumer {
     private final AtomicInteger consumerInvokedAndJobInitialized = new AtomicInteger(2);
     private final UUID jobId;
     private final BatchConsumer consumer;
-    private final TransportKillJobsNodeAction transportKillJobsNodeAction;
+    private final TransportKillAction killAction;
     private final AtomicBoolean consumerAccepted = new AtomicBoolean(false);
 
     private Throwable failure = null;
@@ -54,10 +54,10 @@ class InterceptingBatchConsumer implements BatchConsumer {
     InterceptingBatchConsumer(UUID jobId,
                               BatchConsumer consumer,
                               InitializationTracker jobsInitialized,
-                              TransportKillJobsNodeAction transportKillJobsNodeAction) {
+                              TransportKillAction killAction) {
         this.jobId = jobId;
         this.consumer = consumer;
-        this.transportKillJobsNodeAction = transportKillJobsNodeAction;
+        this.killAction = killAction;
         jobsInitialized.future.whenComplete((o, f) -> tryForwardResult(f));
     }
 
@@ -80,8 +80,8 @@ class InterceptingBatchConsumer implements BatchConsumer {
             assert iterator != null : "iterator must be present";
             consumer.accept(iterator, null);
         } else {
-            transportKillJobsNodeAction.broadcast(
-                new KillJobsRequest(Collections.singletonList(jobId)), new ActionListener<KillResponse>() {
+            killAction.broadcast(
+                new KillJobsRequest(Collections.singletonList(jobId), false), new ActionListener<KillResponse>() {
                     @Override
                     public void onResponse(KillResponse killResponse) {
                         LOGGER.trace("Killed {} jobs before forwarding the failure={}", killResponse.numKilled(), failure);

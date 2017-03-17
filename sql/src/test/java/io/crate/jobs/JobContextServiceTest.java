@@ -32,6 +32,7 @@ import org.junit.Test;
 
 import javax.annotation.Nonnull;
 import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -131,7 +132,7 @@ public class JobContextServiceTest extends CrateUnitTest {
         @SuppressWarnings("unchecked")
         Map<UUID, JobExecutionContext> activeContexts = (Map<UUID, JobExecutionContext>) activeContextsField.get(jobContextService);
         assertThat(activeContexts.size(), is(1));
-        assertThat(jobContextService.killAll().get(5L, TimeUnit.SECONDS), is(1));
+        assertThat(jobContextService.kill(Collections.emptyList(), false).get(5L, TimeUnit.SECONDS), is(1));
 
         assertThat(killCalled.get(), is(true));
         assertThat(activeContexts.size(), is(0));
@@ -208,7 +209,7 @@ public class JobContextServiceTest extends CrateUnitTest {
         builder.addSubContext(new DummySubContext(1));
         jobContextService.createContext(builder);
 
-        assertThat(jobContextService.killAll().get(), is(2));
+        assertThat(jobContextService.kill(Collections.emptyList(), false).get(), is(2));
     }
 
     @Test

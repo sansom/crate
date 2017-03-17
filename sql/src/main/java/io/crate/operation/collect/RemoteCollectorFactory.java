@@ -87,7 +87,7 @@ public class RemoteCollectorFactory {
             localNodeId,
             remoteNodeId,
             transportActionProvider.transportJobInitAction(),
-            transportActionProvider.transportKillJobsNodeAction(),
+            transportActionProvider.transportKillAction(),
             jobContextService,
             ramAccountingContext,
             consumer,

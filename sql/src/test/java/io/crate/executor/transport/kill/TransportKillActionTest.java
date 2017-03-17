@@ -21,7 +21,6 @@
 
 package io.crate.executor.transport.kill;
 
-import com.google.common.collect.ImmutableList;
 import io.crate.jobs.JobContextService;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.settings.Settings;
@@ -30,32 +29,33 @@ import org.elasticsearch.transport.TransportService;
 import org.junit.Test;
 import org.mockito.Answers;
 
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
 
-public class TransportKillJobsNodeActionTest {
+public class TransportKillActionTest {
 
     @Test
     public void testKillIsCalledOnJobContextService() throws Exception {
         TransportService transportService = mock(TransportService.class);
         JobContextService jobContextService = mock(JobContextService.class, Answers.RETURNS_MOCKS.get());
-        TransportKillJobsNodeAction transportKillJobsNodeAction = new TransportKillJobsNodeAction(
+        NoopClusterService noopClusterService = new NoopClusterService();
+
+        TransportKillAction transportKillAction = new TransportKillAction(
             Settings.EMPTY,
             jobContextService,
-            new NoopClusterService(),
+            noopClusterService,
             transportService
         );
 
         final CountDownLatch latch = new CountDownLatch(1);
-        List<UUID> toKill = ImmutableList.of(UUID.randomUUID(), UUID.randomUUID());
-
-        transportKillJobsNodeAction.nodeOperation(new KillJobsRequest(toKill), new ActionListener<KillResponse>() {
+        fail("fixme");
+        /*
+        transportKillAction.nodeOperation(new KillAllRequest(), new ActionListener<KillResponse>() {
             @Override
-            public void onResponse(KillResponse killAllResponse) {
+            public void onResponse(KillResponse killResponse) {
                 latch.countDown();
             }
 
@@ -66,6 +66,7 @@ public class TransportKillJobsNodeActionTest {
         });
 
         latch.await(1, TimeUnit.SECONDS);
-        verify(jobContextService, times(1)).killJobs(toKill);
+        verify(jobContextService, times(1)).killAll();
+        */
     }
 }

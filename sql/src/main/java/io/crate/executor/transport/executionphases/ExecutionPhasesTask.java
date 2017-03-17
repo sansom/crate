@@ -34,7 +34,7 @@ import io.crate.data.Bucket;
 import io.crate.data.CollectingBatchConsumer;
 import io.crate.data.Row;
 import io.crate.executor.JobTask;
-import io.crate.executor.transport.kill.TransportKillJobsNodeAction;
+import io.crate.executor.transport.kill.TransportKillAction;
 import io.crate.jobs.*;
 import io.crate.operation.NodeOperation;
 import io.crate.operation.NodeOperationTree;
@@ -93,7 +93,7 @@ public class ExecutionPhasesTask extends JobTask {
     static final ESLogger LOGGER = Loggers.getLogger(ExecutionPhasesTask.class);
 
     private final TransportJobAction transportJobAction;
-    private final TransportKillJobsNodeAction transportKillJobsNodeAction;
+    private final TransportKillAction killAction;
     private final List<NodeOperationTree> nodeOperationTrees;
     private final ClusterService clusterService;
     private ContextPreparer contextPreparer;
@@ -108,7 +108,7 @@ public class ExecutionPhasesTask extends JobTask {
                                JobContextService jobContextService,
                                IndicesService indicesService,
                                TransportJobAction transportJobAction,
-                               TransportKillJobsNodeAction transportKillJobsNodeAction,
+                               TransportKillAction killAction,
                                List<NodeOperationTree> nodeOperationTrees) {
         super(jobId);
         this.clusterService = clusterService;
@@ -116,7 +116,7 @@ public class ExecutionPhasesTask extends JobTask {
         this.jobContextService = jobContextService;
         this.indicesService = indicesService;
         this.transportJobAction = transportJobAction;
-        this.transportKillJobsNodeAction = transportKillJobsNodeAction;
+        this.killAction = killAction;
         this.nodeOperationTrees = nodeOperationTrees;
 
         for (NodeOperationTree nodeOperationTree : nodeOperationTrees) {
@@ -251,7 +251,7 @@ public class ExecutionPhasesTask extends JobTask {
 
         for (ExecutionPhase handlerPhase : handlerPhases) {
             InterceptingBatchConsumer interceptingBatchConsumer =
-                new InterceptingBatchConsumer(jobId(), consumerIt.next(), initializationTracker, transportKillJobsNodeAction);
+                new InterceptingBatchConsumer(jobId(), consumerIt.next(), initializationTracker, killAction);
             handlerPhaseAndReceiver.add(new Tuple<>(handlerPhase, interceptingBatchConsumer));
         }
         return handlerPhaseAndReceiver;

@@ -188,7 +188,7 @@ public class TransportExecutor implements Executor {
                 jobContextService,
                 indicesService,
                 transportActionProvider.transportJobInitAction(),
-                transportActionProvider.transportKillJobsNodeAction(),
+                transportActionProvider.transportKillAction(),
                 nodeOperationTrees
             );
         }
@@ -213,10 +213,10 @@ public class TransportExecutor implements Executor {
         @Override
         public Task visitKillPlan(KillPlan killPlan, Void context) {
             return killPlan.jobToKill().isPresent() ?
-                new KillJobTask(transportActionProvider.transportKillJobsNodeAction(),
+                new KillJobTask(transportActionProvider.transportKillAction(),
                     killPlan.jobId(),
                     killPlan.jobToKill().get()) :
-                new KillTask(transportActionProvider.transportKillAllNodeAction(), killPlan.jobId());
+                new KillTask(transportActionProvider.transportKillAction(), killPlan.jobId());
         }
 
         @Override
