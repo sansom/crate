@@ -43,11 +43,11 @@ These functions can be created like this::
     cr> _wait_for_function('log10')
 
     cr> SELECT log10(10);
-    +----------------+
-    | log10(10)      |
-    +----------------+
-    |            1.0 |
-    +----------------+
+    +-----------+
+    | log10(10) |
+    +-----------+
+    |       1.0 |
+    +-----------+
     SELECT 1 row in set (... sec)
 
 Arguments can be named in the function definition.
