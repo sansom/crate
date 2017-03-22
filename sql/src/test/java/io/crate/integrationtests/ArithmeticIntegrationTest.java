@@ -21,9 +21,13 @@
 
 package io.crate.integrationtests;
 
+import com.carrotsearch.randomizedtesting.annotations.Repeat;
+import com.carrotsearch.randomizedtesting.annotations.Seed;
 import io.crate.action.sql.SQLActionException;
+import io.crate.executor.transport.distributed.TransportDistributedResultAction;
 import io.crate.testing.TestingHelpers;
 import io.crate.testing.UseJdbc;
+import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.util.Locale;
@@ -33,6 +37,7 @@ import static org.hamcrest.core.Is.is;
 
 
 @UseJdbc
+@Seed("73A67497B1531DD5:F6EE1BC5FFE63965")
 public class ArithmeticIntegrationTest extends SQLTransportIntegrationTest {
 
     @Test
@@ -317,6 +322,7 @@ public class ArithmeticIntegrationTest extends SQLTransportIntegrationTest {
     }
 
     @Test
+    @Repeat (iterations = 50)
     public void testSelectGroupByFailingArithmeticScalar() throws Exception {
         expectedException.expect(SQLActionException.class);
         expectedException.expectMessage("log(x, b): given arguments would result in: 'NaN'");
@@ -327,6 +333,14 @@ public class ArithmeticIntegrationTest extends SQLTransportIntegrationTest {
         execute("refresh table t");
 
         execute("select log(d, l) from t where log(d, -1) >= 0 group by log(d, l)");
+
+        Iterable<TransportDistributedResultAction> resultActions = internalCluster().getInstances(TransportDistributedResultAction.class);
+        assertBusy(() -> {
+            for (TransportDistributedResultAction resultAction : resultActions) {
+                assertThat(resultAction.listeners.entrySet(), Matchers.empty());
+                assertThat(resultAction.pendingOperations.get(), is(0));
+            }
+        });
     }
 
     @Test

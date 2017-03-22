@@ -31,7 +31,6 @@ import io.crate.jobs.JobContextService;
 import io.crate.jobs.JobExecutionContext;
 import io.crate.jobs.PageBucketReceiver;
 import io.crate.operation.PageResultListener;
-import org.elasticsearch.ExceptionsHelper;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.common.component.AbstractComponent;
 import org.elasticsearch.common.inject.Inject;
@@ -39,9 +38,12 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.TransportService;
 
+import java.util.IdentityHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class TransportDistributedResultAction extends AbstractComponent implements NodeAction<DistributedResultRequest, DistributedResultResponse> {
@@ -53,6 +55,9 @@ public class TransportDistributedResultAction extends AbstractComponent implemen
     private final Transports transports;
     private final JobContextService jobContextService;
     private final ScheduledExecutorService scheduler;
+
+    public final Map<DistributedResultRequest, ActionListener<DistributedResultResponse>> listeners = new IdentityHashMap<>();
+    public final AtomicInteger pendingOperations = new AtomicInteger(0);
 
     @Inject
     public TransportDistributedResultAction(Transports transports,
@@ -84,7 +89,23 @@ public class TransportDistributedResultAction extends AbstractComponent implemen
     @Override
     public void nodeOperation(DistributedResultRequest request,
                               ActionListener<DistributedResultResponse> listener) {
-        nodeOperation(request, listener, 0);
+        synchronized (listeners) {
+            listeners.put(request, listener);
+        }
+        ActionListener<DistributedResultResponse> wrappedListener = new ActionListener<DistributedResultResponse>() {
+            @Override
+            public void onResponse(DistributedResultResponse distributedResultResponse) {
+                listeners.remove(request);
+                listener.onResponse(distributedResultResponse);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                listeners.remove(request);
+                listener.onFailure(e);
+            }
+        };
+        nodeOperation(request, wrappedListener, 0);
     }
 
     private void nodeOperation(final DistributedResultRequest request,
@@ -145,6 +166,7 @@ public class TransportDistributedResultAction extends AbstractComponent implemen
                 logger.trace("scheduling retry #{} to start node operation for jobId: {} in {}ms",
                     retry, request.jobId(), delay);
             }
+            pendingOperations.incrementAndGet();
             scheduler.schedule(new NodeOperationRunnable(request, listener, retry), delay, TimeUnit.MILLISECONDS);
         }
     }
@@ -176,6 +198,7 @@ public class TransportDistributedResultAction extends AbstractComponent implemen
 
         @Override
         public void run() {
+            pendingOperations.decrementAndGet();
             nodeOperation(request, listener, retry + 1);
         }
     }
