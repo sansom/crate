@@ -12,7 +12,7 @@ Synopsis
 
 ::
 
-    DROP FUNCTION [ IF EXISTS ] [ schema_name. ] function_name
+    DROP FUNCTION [ IF EXISTS ] function_name
         ( [ [ arg_name ] arg_type [, ...] ] )
 
 Description
@@ -25,8 +25,6 @@ Parameters
 ==========
 
 :IF EXISTS: Do not produce an error if the function doesn't exist.
-
-:schema_name: The name of the schema in which the function was created.
 
 :function_name: The name of the function to drop.
 

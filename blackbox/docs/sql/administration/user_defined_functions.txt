@@ -31,7 +31,7 @@ These functions can be created like this::
 
 ``OR REPLACE`` can be used to replace an existing function::
 
-    cr> CREATE FUNCTION log10(long)
+    cr> CREATE OR REPLACE FUNCTION log10(long)
     ...  RETURNS double
     ...  LANGUAGE JAVASCRIPT
     ...  AS 'function log10(a) { return Math.log(a)/Math.log(10); }';
@@ -63,39 +63,10 @@ For example, if you wanted to name two ``geo_point`` arguments ``start`` and
     ...      }';
     CREATE OK, 1 row affected  (... sec)
 
-.. hide:
-
-    cr> _wait_for_function('doc', 'calculate_distance')
-
 .. NOTE::
 
    Argument names are used for query documentation purposes only. You cannot
    reference arguments by name in the function body.
-
-Optionally, a schema for the function can be specified. If no schema is
-specified, the function will be created in the current schema.
-
-You can explicitly assign a schema like this::
-
-    cr> CREATE FUNCTION my_schema.subtract(long, long)
-    ...  RETURNS integer
-    ...  LANGUAGE JAVASCRIPT
-    ...  AS 'function subtract(a, b) { return a - b; }';
-    CREATE OK, 1 row affected  (... sec)
-
-.. hide:
-
-    cr> _wait_for_function('my_schema', 'subtract')
-
-Functions can be accessed from any schema if the full name is provided::
-
-    cr> SELECT my_schema.subtract(1, 2);
-    +-------------------------+
-    | my_schema.subtract(1, 2)|
-    +-------------------------+
-    |                      -1 |
-    +-------------------------+
-    SELECT 1 row in set (... sec)
 
 
 Supported Types
@@ -116,12 +87,12 @@ data types.
 OVERLOADING
 -----------
 
-Within a specific schema, you can overload functions by defining two functions with the
-same name that have a different set of arguments
+You can overload functions by defining two functions with the same name that
+have a different set of arguments.
 
 This would overload our ``subtract`` function with different argument types::
 
-    cr> CREATE FUNCTION my_schema.subtract(long, long)
+    cr> CREATE FUNCTION subtract(long, long)
     ...  RETURNS long
     ...  LANGUAGE JAVASCRIPT
     ...  AS 'function subtract(a, b) { return a - b; }';
@@ -129,7 +100,7 @@ This would overload our ``subtract`` function with different argument types::
 
 This would overload our ``subtract`` function with more arguments::
 
-    cr> CREATE FUNCTION my_schema.subtract(long, long, long)
+    cr> CREATE FUNCTION subtract(long, long, long)
     ...  RETURNS long
     ...  LANGUAGE JAVASCRIPT
     ...  AS 'function subtract(a, b, c) { return a - b - c; }';
@@ -138,11 +109,7 @@ This would overload our ``subtract`` function with more arguments::
 .. NOTE::
 
    It is considered bad practice to create functions that have the same name
-   as the CrateDB built-in functions. When no schema name is provided, the
-   CrateDB built-in function will be looked up first, and therefore it will
-   hide the user-defined function. However, such user-defined functions can
-   still be called if the schema name is explicitly provided. See :ref:`schemas`
-   for more information about current schemas.
+   as the CrateDB built-in functions.
 
 
 Determinism
@@ -163,10 +130,6 @@ User defined functions can be dropped like this::
 Adding ``IF EXISITS`` prevents from raising an error if the function doesn't exist::
 
      cr> DROP FUNCTION IF EXISITS log10(integer, integer);
-
-If a function was created within a specific schema it can be dropped like this::
-
-     cr> DROP FUNCTION IF EXISTS my_schema.subtract(integer, integer);
 
 Optionally, argument names can be specified within the drop statement::
 

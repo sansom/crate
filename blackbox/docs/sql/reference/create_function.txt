@@ -12,7 +12,7 @@ Synopsis
 
 ::
 
-    CREATE [OR REPLACE] FUNCTION [ schema_name. ] function_name
+    CREATE [OR REPLACE] FUNCTION function_name
         ( [ [arg_name] arg_type ] [, ...] ] )
     RETURNS return_type
     LANGUAGE language_name
@@ -26,9 +26,6 @@ Description
 ``CREATE OR REPLACE FUNCTION`` will either create a new function, or replace an
 existing function.
 
-Optionally, a function name can contain a schema name. If the schema is not
-defined, the function is created in the current schema.
-
 The signature of the function is defined by its schema, name and input arguments.
 
 You can overload functions by defining two functions of the same name, but have
@@ -36,8 +33,6 @@ a different set of input arguments.
 
 Parameters
 ==========
-
-:schema_name: The name of the schema in which the function is created.
 
 :function_name: The name of the function to create.
 
