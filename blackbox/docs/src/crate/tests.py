@@ -70,15 +70,15 @@ def wait_for_schema_update(schema, table, column):
                     (schema, table, column))
         count = c.fetchone()[0]
 
-def wait_for_function(schema, name):
+def wait_for_function(name):
     conn = connect('localhost:' + str(CRATE_HTTP_PORT))
     c = conn.cursor()
     while True:
         c.execute(('select count(*) from information_schema.routines '
-                   'where routine_schema = ? and routine_name = ? '
+                   'where and routine_name = ? '
                    'and routine_type = ?'),
-                  (schema, name, 'FUNCTION'))
-        if int(c.fetchone()[0]) != 0:
+                  (name, 'FUNCTION'))
+        if c.fetchone()[0] != 0:
             break
 
 
