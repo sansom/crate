@@ -206,7 +206,7 @@ an ``object`` or a ``GeoJson``::
      ...  RETURNS object
      ...  LANGUAGE JAVASCRIPT
      ...  AS 'function point_object(point) {
-     ...        return {/"lon/": point[0], /"lat/": point[1]};
+     ...        return {"lon": point[0], "lat": point[1]};
      ...      }';
      CREATE OK, 1 row affected  (... sec)
 

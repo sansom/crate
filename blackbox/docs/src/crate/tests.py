@@ -75,8 +75,7 @@ def wait_for_function(name):
     c = conn.cursor()
     while True:
         c.execute(('select count(*) from information_schema.routines '
-                   'where and routine_name = ? '
-                   'and routine_type = ?'),
+                   'where routine_name = ? and routine_type = ?'),
                   (name, 'FUNCTION'))
         if c.fetchone()[0] != 0:
             break
