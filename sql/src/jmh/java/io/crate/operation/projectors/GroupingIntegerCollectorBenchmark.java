@@ -26,24 +26,18 @@ import io.crate.analyze.symbol.Aggregation;
 import io.crate.analyze.symbol.InputColumn;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.data.*;
-import io.crate.metadata.FunctionIdent;
-import io.crate.metadata.FunctionInfo;
-import io.crate.metadata.Functions;
-import io.crate.operation.aggregation.AggregationFunction;
 import io.crate.operation.aggregation.Aggregator;
-import io.crate.operation.aggregation.impl.AggregationImplModule;
 import io.crate.operation.aggregation.impl.SumAggregation;
 import io.crate.operation.collect.CollectExpression;
 import io.crate.operation.collect.InputCollectExpression;
 import io.crate.types.DataTypes;
 import org.elasticsearch.common.breaker.CircuitBreaker;
 import org.elasticsearch.common.breaker.NoopCircuitBreaker;
-import org.elasticsearch.common.inject.ModulesBuilder;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -56,14 +50,11 @@ public class GroupingIntegerCollectorBenchmark {
         new RamAccountingContext("dummy", new NoopCircuitBreaker(CircuitBreaker.FIELDDATA));
 
     private GroupingCollector groupBySumCollector;
-    private BatchIterator rowsIterator;
     private List<Row> rows;
 
     @Setup
     public void createGroupingCollector() {
-        Functions functions = new ModulesBuilder().add(new AggregationImplModule())
-            .createInjector().getInstance(Functions.class);
-        groupBySumCollector = createGroupBySumCollector(functions);
+        groupBySumCollector = createGroupBySumCollector();
 
         rows = new ArrayList<>(20_000_000);
         for (int i = 0; i < 20_000_000; i++) {
@@ -71,24 +62,24 @@ public class GroupingIntegerCollectorBenchmark {
         }
     }
 
-    private GroupingCollector createGroupBySumCollector(Functions functions) {
+    private static GroupingCollector createGroupBySumCollector() {
         InputCollectExpression keyInput = new InputCollectExpression(0);
-        List<Input<?>> keyInputs = Arrays.<Input<?>>asList(keyInput);
+        List<Input<?>> keyInputs = Collections.singletonList(keyInput);
         CollectExpression[] collectExpressions = new CollectExpression[]{keyInput};
 
-        FunctionIdent functionIdent = new FunctionIdent(SumAggregation.NAME,
-            Arrays.asList(DataTypes.INTEGER));
-        FunctionInfo functionInfo = new FunctionInfo(functionIdent, DataTypes.INTEGER, FunctionInfo.Type.AGGREGATE);
-        AggregationFunction sumAgg = (AggregationFunction) functions.get(functionIdent);
-        Aggregation aggregation = Aggregation.finalAggregation(functionInfo,
-            Arrays.asList(new InputColumn(0)), Aggregation.Step.ITER);
+        SumAggregation sumAgg = new SumAggregation(DataTypes.INTEGER);
+        Aggregation aggregation = Aggregation.finalAggregation(
+            sumAgg.info(),
+            Collections.singletonList(new InputColumn(0)),
+            Aggregation.Step.ITER
+        );
 
         Aggregator[] aggregators = new Aggregator[]{
             new Aggregator(
                 RAM_ACCOUNTING_CONTEXT,
                 aggregation,
                 sumAgg,
-                new Input[]{keyInput}
+                keyInput
             )
         };
 
@@ -103,7 +94,7 @@ public class GroupingIntegerCollectorBenchmark {
 
     @Benchmark
     public void measureGroupBySumInteger(Blackhole blackhole) throws Exception {
-        rowsIterator = RowsBatchIterator.newInstance(rows, 1);
+        BatchIterator rowsIterator = RowsBatchIterator.newInstance(rows, 1);
         blackhole.consume(BatchRowVisitor.visitRows(rowsIterator, groupBySumCollector).get());
     }
 }
