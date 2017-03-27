@@ -333,7 +333,7 @@ public class CreateAlterTableStatementAnalyzerTest extends CrateDummyClusterServ
         Map<String, Object> mappingProperties = analysis.mappingProperties();
         Map<String, Object> contentMapping = (Map<String, Object>) mappingProperties.get("content");
 
-        assertThat((String) contentMapping.get("index"), is("analyzed"));
+        assertThat((String) contentMapping.get("index"), is("true"));
         assertThat((String) contentMapping.get("analyzer"), is("german"));
     }
 
@@ -348,7 +348,7 @@ public class CreateAlterTableStatementAnalyzerTest extends CrateDummyClusterServ
         Map<String, Object> mappingProperties = analysis.mappingProperties();
         Map<String, Object> contentMapping = (Map<String, Object>) mappingProperties.get("content");
 
-        assertThat((String) contentMapping.get("index"), is("analyzed"));
+        assertThat((String) contentMapping.get("index"), is("true"));
         assertThat((String) contentMapping.get("analyzer"), is("german"));
     }
 
@@ -364,7 +364,7 @@ public class CreateAlterTableStatementAnalyzerTest extends CrateDummyClusterServ
         Map<String, Object> details = (Map<String, Object>) mappingProperties.get("user");
         Map<String, Object> nameMapping = (Map<String, Object>) ((Map<String, Object>) details.get("properties")).get("name");
 
-        assertThat((String) nameMapping.get("index"), is("analyzed"));
+        assertThat((String) nameMapping.get("index"), is("true"));
         assertThat((String) nameMapping.get("analyzer"), is("ft_search"));
 
         assertThat(analysis.tableParameter().settings().get("search"), is("foobar"));
@@ -392,7 +392,7 @@ public class CreateAlterTableStatementAnalyzerTest extends CrateDummyClusterServ
         assertThat(((List<String>) contentMapping.get("copy_to")).get(0), is("content_ft"));
 
         Map<String, Object> ft_mapping = (Map<String, Object>) mappingProperties.get("content_ft");
-        assertThat((String) ft_mapping.get("index"), is("analyzed"));
+        assertThat((String) ft_mapping.get("index"), is("true"));
         assertThat((String) ft_mapping.get("analyzer"), is("standard"));
     }
 
@@ -409,7 +409,7 @@ public class CreateAlterTableStatementAnalyzerTest extends CrateDummyClusterServ
         assertThat(((List<String>) contentMapping.get("copy_to")).get(0), is("content_ft"));
 
         Map<String, Object> ft_mapping = (Map<String, Object>) mappingProperties.get("content_ft");
-        assertThat((String) ft_mapping.get("index"), is("analyzed"));
+        assertThat((String) ft_mapping.get("index"), is("true"));
         assertThat((String) ft_mapping.get("analyzer"), is("keyword"));
     }
 

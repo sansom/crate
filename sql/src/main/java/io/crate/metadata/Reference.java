@@ -64,12 +64,18 @@ public class Reference extends Symbol {
     };
 
     public enum IndexType {
-        ANALYZED,
-        NOT_ANALYZED,
-        NO;
+        ANALYZED("true"),
+        NOT_ANALYZED("true"),
+        NO("false");
+
+        private final String stringValue;
+
+        IndexType(String stringValue) {
+            this.stringValue = stringValue;
+        }
 
         public String toString() {
-            return name().toLowerCase(Locale.ENGLISH);
+            return stringValue;
         }
     }
 

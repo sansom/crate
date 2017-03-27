@@ -403,7 +403,7 @@ public class AnalyzedTableElements {
 
 
         }
-        if (columnDefinition.indexConstraint().equals("analyzed")) {
+        if (columnDefinition.indexConstraint().equals("true")) {
             throw new IllegalArgumentException(String.format(Locale.ENGLISH,
                 "Cannot use column %s with fulltext index in PARTITIONED BY clause",
                 columnDefinition.ident().sqlFqn()));
